@@ -6,6 +6,7 @@ import pandas as pd
 import theano
 from os.path import isfile
 import theano.tensor as T
+from keras.preprocessing.image import ImageDataGenerator
 from theano.tensor.shared_randomstreams import RandomStreams
 
 theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
@@ -237,6 +238,8 @@ def main():
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--algorithm', type=str, default='dropout')
     parser.add_argument('--verbose', type=int, default=1)
+    parser.add_argument('--augmentation', action='store_true', default=False)
+
     args = parser.parse_args()
     global dataset_name
     dataset_name = args.dataset
@@ -316,13 +319,15 @@ def main():
 
         filename = dataset_name+'_'+args.algorithm+'_'+str(threshold)+'_model.txt'
         with open(filename, "w") as text_file:
-            print("{}".format(model.to_yaml()), file=text_file)
+            text_file.write(model.to_json())
+
+            # print("{}".format(model.to_json()), file=text_file)
 
         callbacks = [
             history_callback,
             LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
         ]
-        if not data_augmentation:
+        if not args.augmentation:
             print('Not using data augmentation.')
             model.fit(X_train, Y_train,
                       batch_size=batch_size,
@@ -359,6 +364,10 @@ def main():
                                 nb_epoch=nb_epoch,
                                 validation_data=(X_test, Y_test),
                                 callbacks=callbacks,)
+
+        weights_file = dataset_name + '_' + args.algorithm + '_'+ str(threshold) + '_trained_weights' + '_' + str(nb_epoch) + '.h5'
+        print("Saving Weights File: {} ...".format(weights_file))
+        model.save_weights(weights_file)
 
         # df = pd.DataFrame.from_dict(history_callback.history)
         #
