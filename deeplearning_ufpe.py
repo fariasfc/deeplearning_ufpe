@@ -314,6 +314,10 @@ def main():
 
         model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, algorithm=args.algorithm, threshold=threshold)
 
+        filename = dataset_name+'_'+args.algorithm+'_'+str(threshold)+'_model.txt'
+        with open(filename, "w") as text_file:
+            print("{}".format(model.to_yaml()), file=text_file)
+
         callbacks = [
             history_callback,
             LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
