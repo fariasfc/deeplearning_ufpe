@@ -74,14 +74,16 @@ class SSGD(Optimizer):
             # cutoff_value = sorted_gradients[int(threshold*nb_params)]
             # new_g = g * g[g > cutoff_value]
             if self.algorithm == 'droplowests_probs':
-                print('droping lowests with probability')
+                print('droping lowests with probability!')
                 r = K.random_uniform(g.shape, seed=SEED)
                 normalized = T.abs_(g)/T.max(g)
                 mask = r < normalized
                 new_g = g * mask
             elif self.algorithm == 'dropoutgrads':
+                print("dropoutgrads!")
                 new_g = K.dropout(g, threshold, None, seed=SEED)
             elif self.algorithm == 'droplowests':
+                print("droplowests!")
                 g_abs = K.abs(g)
                 max_g = K.max(g_abs)
                 min_g = K.min(g_abs)
@@ -89,7 +91,7 @@ class SSGD(Optimizer):
                 mask = g_abs > threshold_values
                 new_g = g * mask
             elif self.algorithm == 'dropout':
-                pass
+                print("dropout!")
             else:
                 raise Exception('invalid algorithm')
 
@@ -120,8 +122,8 @@ class SSGD(Optimizer):
 
 
 
-def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algorithm, threshold, ):
-    weights_file = dataset_name+'_sorted_ssgd_weights.h5'
+def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algorithm, threshold):
+    weights_file = dataset_name+'_'+algorithm+'_'+threshold+'_weights.h5'
     inputs = Input(shape=shape_inputs, name='inputs')
     predictions = None
     if dataset_name == 'cifar10':
@@ -214,9 +216,11 @@ dataset_name='mnist'
 def main():
     print("starting!")
     parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--algorithm', type=str, default='dropout')
     args = parser.parse_args()
+    dataset_name = args.dataset
     print(args)
     # print('floatx=' + theano.config.floatX)
 
