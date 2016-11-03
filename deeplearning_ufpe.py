@@ -236,6 +236,7 @@ def main():
     parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--algorithm', type=str, default='dropout')
+    parser.add_argument('--verbose', type=int, default=1)
     args = parser.parse_args()
     global dataset_name
     dataset_name = args.dataset
@@ -324,7 +325,7 @@ def main():
                       nb_epoch=nb_epoch,
                       validation_data=(X_test, Y_test),
                       shuffle=True,
-                      callbacks=callbacks)
+                      callbacks=callbacks, verbose=args.verbose)
             print(callbacks)
         else:
             print('Using real-time data augmentation.')
@@ -353,7 +354,7 @@ def main():
                                 samples_per_epoch=X_train.shape[0],
                                 nb_epoch=nb_epoch,
                                 validation_data=(X_test, Y_test),
-                                callbacks=callbacks)
+                                callbacks=callbacks,)
 
         # df = pd.DataFrame.from_dict(history_callback.history)
         #
