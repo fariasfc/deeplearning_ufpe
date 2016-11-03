@@ -237,7 +237,8 @@ def main():
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--algorithm', type=str, default='dropout')
     args = parser.parse_args()
-    global dataset_name = args.dataset
+    global dataset_name
+    dataset_name = args.dataset
     print(args)
     # print('floatx=' + theano.config.floatX)
 
