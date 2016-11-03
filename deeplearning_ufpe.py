@@ -123,7 +123,7 @@ class SSGD(Optimizer):
 
 
 def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algorithm, threshold):
-    weights_file = dataset_name+'_'+algorithm+'_'+threshold+'_weights.h5'
+    weights_file = dataset_name+'_weights.h5'
     inputs = Input(shape=shape_inputs, name='inputs')
     predictions = None
     if dataset_name == 'cifar10':
