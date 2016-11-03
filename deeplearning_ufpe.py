@@ -88,6 +88,8 @@ class SSGD(Optimizer):
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs > threshold_values
                 new_g = g * mask
+            elif self.algorithm == 'dropout':
+                pass
             else:
                 raise Exception('invalid algorithm')
 
