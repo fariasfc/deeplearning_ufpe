@@ -6,6 +6,8 @@ import pandas as pd
 import theano
 from os.path import isfile
 import theano.tensor as T
+from theano.tensor.shared_randomstreams import RandomStreams
+
 theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
 # theano.config.optimizer='fast_compile'
 # theano.config.exception_verbosity='high'
@@ -79,9 +81,16 @@ class SSGD(Optimizer):
                 normalized = T.abs_(g)/T.max(g)
                 mask = r < normalized
                 new_g = g * mask
-            elif self.algorithm == 'dropoutgrads':
-                print("dropoutgrads!")
-                new_g = K.dropout(g, threshold, None, seed=SEED)
+            elif self.algorithm == 'drophighests_probs':
+                print('droping highests with probability!')
+                r = K.random_uniform(g.shape, seed=SEED)
+                normalized = T.abs_(g)/T.max(g)
+                mask = r > normalized
+                new_g = g * mask
+            elif self.algorithm == 'dropgrads':
+                print("dropgrads!")
+                mask = K.random_binomial(g.shape, p=1-threshold, seed=SEED)
+                new_g = mask*g
             elif self.algorithm == 'droplowests':
                 print("droplowests!")
                 g_abs = K.abs(g)
@@ -89,6 +98,14 @@ class SSGD(Optimizer):
                 min_g = K.min(g_abs)
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs > threshold_values
+                new_g = g * mask
+            elif self.algorithm == 'drophighests':
+                print("drophighests!")
+                g_abs = K.abs(g)
+                max_g = K.max(g_abs)
+                min_g = K.min(g_abs)
+                threshold_values = threshold * (max_g - min_g) + min_g
+                mask = g_abs < threshold_values
                 new_g = g * mask
             elif self.algorithm == 'dropout':
                 print("dropout!")
