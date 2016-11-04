@@ -97,7 +97,7 @@ class SSGD(Optimizer):
         nesterov: boolean. Whether to apply Nesterov momentum.
     '''
     def __init__(self, lr=0.01, momentum=0., decay=0.,
-                 nesterov=False, threshold=0, algorithm=None, **kwargs):
+                 nesterov=False, threshold=0, optimizer=None, **kwargs):
         super(SSGD, self).__init__(**kwargs)
         self.__dict__.update(locals())
         self.iterations = K.variable(0.)
@@ -106,7 +106,7 @@ class SSGD(Optimizer):
         self.momentum = K.variable(momentum)
         self.decay = K.variable(decay)
         self.inital_decay = decay
-        self.algorithm = algorithm
+        self.optimizer = optimizer
 
     def get_updates(self, params, constraints, loss):
         grads = self.get_gradients(loss, params)
@@ -130,23 +130,23 @@ class SSGD(Optimizer):
             # nb_params = T.shape(sorted_gradients)
             # cutoff_value = sorted_gradients[int(threshold*nb_params)]
             # new_g = g * g[g > cutoff_value]
-            if self.algorithm == 'droplowests_probs':
+            if self.optimizer == 'droplowests_probs':
                 print('droping lowests with probability!')
                 r = K.random_uniform(g.shape, seed=SEED)
                 normalized = T.abs_(g)/T.max(g)
                 mask = r < normalized
                 new_g = g * mask
-            elif self.algorithm == 'drophighests_probs':
+            elif self.optimizer == 'drophighests_probs':
                 print('droping highests with probability!')
                 r = K.random_uniform(g.shape, seed=SEED)
                 normalized = T.abs_(g)/T.max(g)
                 mask = r > normalized
                 new_g = g * mask
-            elif self.algorithm == 'dropgrads':
+            elif self.optimizer == 'dropgrads':
                 print("dropgrads!")
                 mask = K.random_binomial(g.shape, p=1-threshold, seed=SEED)
                 new_g = mask*g
-            elif self.algorithm == 'droplowests':
+            elif self.optimizer == 'droplowests':
                 print("droplowests!")
                 g_abs = K.abs(g)
                 max_g = K.max(g_abs)
@@ -154,7 +154,7 @@ class SSGD(Optimizer):
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs > threshold_values
                 new_g = g * mask
-            elif self.algorithm == 'drophighests':
+            elif self.optimizer == 'drophighests':
                 print("drophighests!")
                 g_abs = K.abs(g)
                 max_g = K.max(g_abs)
@@ -162,10 +162,8 @@ class SSGD(Optimizer):
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs < threshold_values
                 new_g = g * mask
-            elif self.algorithm == 'dropout':
-                print("dropout!")
             else:
-                raise Exception('invalid algorithm')
+                raise Exception('invalid optimizer')
 
             v = self.momentum * m - lr * new_g  # velocity
             self.updates.append(K.update(m, v))
@@ -194,29 +192,29 @@ class SSGD(Optimizer):
 
 
 
-def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algorithm, threshold, model):
+def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, use_dropout, optimizer, threshold, model):
     weights_file = dataset_name+ '_' + model +'_weights.h5'
     inputs = Input(shape=shape_inputs, name='inputs')
     predictions = None
     if model == '96x128x256x2048x2048':
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.9, name='drop_inputs')(inputs)
             h = Convolution2D(96, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(h)
         else:
             h = Convolution2D(96, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(inputs)
 
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp1')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.75, name='drop1')(h)
 
         h = Convolution2D(128, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv2')(h)
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp2')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.75, name='drop2')(h)
 
         h = Convolution2D(256, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv3')(h)
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp3')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.5, name='drop3')(h)
 
         # h = Convolution2D(64, 3, 3, border_mode='same',activation='relu')(inputs)
@@ -226,61 +224,61 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algo
 
         h = Flatten()(h)
         h = Dense(2048, activation='relu', name='dense1')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.5, name='drop4')(h)
         h = Dense(2048, activation='relu', name='dense2')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.5, name='drop_outputs')(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
     elif model == '32x32x128':
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(inputs)
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv2')(h)
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp2')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.25, name='drop1')(h)
-        elif algorithm == 'dropout_modified':
+        elif optimizer == 'dropout_modified':
             h = DropoutModified(0.25, name='drop_modified1')(h)
 
         h = Flatten()(h)
         h = Dense(128, activation='relu', name='dense1')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.5, name='drop2')(h)
-        elif algorithm == 'dropout_modified':
+        elif optimizer == 'dropout_modified':
             h = DropoutModified(0.5, name='drop_modified2')(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
     elif model == '32x64x128x1024x512':
         # Create the model
 
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(inputs)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.2)(h)
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv2')(h)
         h = MaxPooling2D(pool_size=pool_size)(h)
 
         h = Convolution2D(64, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv3')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.2)(h)
         h = Convolution2D(64, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv4')(h)
         h = MaxPooling2D(pool_size=pool_size)(h)
 
         h = Convolution2D(128, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv5')(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.2)(h)
         h = Convolution2D(128, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv6')(h)
         h = MaxPooling2D(pool_size=pool_size)(h)
 
         h = Flatten()(h)
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.2)(h)
 
         h = Dense(1024, activation='relu')(h)
 
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.2)(h)
 
         h = Dense(512, activation='relu')(h)
 
-        if algorithm == 'dropout':
+        if use_dropout:
             h = Dropout(0.2)(h)
 
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
@@ -294,10 +292,10 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algo
     model = Model(input=inputs, output=predictions)
 
     # let's train the model using SGD + momentum (how original).
-    if (algorithm == 'dropout' or algorithm == 'dropout_modified' or algorithm == 'nothing'):
+    if (optimizer == 'sgd'):
         opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
     else:
-        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, algorithm=algorithm)
+        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=args.optimizer)
 
     print('Compiling model...')
     start_compile = time.time()
@@ -333,9 +331,11 @@ def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
-    parser.add_argument('--algorithm', type=str, default='dropout')
+    # parser.add_argument('--algorithm', type=str, default='nothing')
+    parser.add_argument('--optimizer', type=str, default='modified_sgd')
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
+    parser.add_argument('--usedropout', action='store_true', default=False)
     parser.add_argument('--model', type=str, default='96x128x256x2048x2048')
 
     args = parser.parse_args()
@@ -410,18 +410,18 @@ def main():
     for threshold in args.thresholds:
         
 
-        print('algorithm: {}    threshold: {}'.format(args.algorithm, threshold))
+        print('optimizer: {}    threshold: {}'.format(args.optimizer, threshold))
 
-        model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, algorithm=args.algorithm, threshold=threshold, model=args.model)
+        model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, use_dropout = args.usedropout, optimizer=args.optimizer, threshold=threshold, model=args.model)
 
-        filename = dataset_name+'_'+args.algorithm+'_'+str(threshold)+'_model_'+args.model+'.txt'
+        filename = "_".join([dataset_name, args.optimizer, 'usedropout: ' + args.usedropout, str(threshold),'model', args.model])+'.txt'
         print(model.summary())
         with open(filename, "w") as text_file:
             text_file.write(model.to_json())
 
             # print("{}".format(model.to_json()), file=text_file)
 
-        filename = "{}-nb_epochs={}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.algorithm, threshold, args.model)
+        filename = "{}-nb_epochs={}_usedropout:{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.usedropout, threshold, args.optimizer, args.model)
         callbacks = [
             history_callback,
             LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
@@ -464,7 +464,7 @@ def main():
                                 validation_data=(X_test, Y_test),
                                 callbacks=callbacks,)
 
-        weights_file = dataset_name + '_' + args.algorithm + '_'+ str(threshold) + '_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
+        weights_file = dataset_name + '_' + args.optimizer + '_usedropout:' + args.usedropout + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
         print("Saving Weights File: {} ...".format(weights_file))
         model.save_weights(weights_file)
 
