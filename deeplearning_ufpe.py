@@ -6,6 +6,7 @@ import pandas as pd
 import theano
 from os.path import isfile
 import theano.tensor as T
+from keras.engine.topology import Layer
 from keras.preprocessing.image import ImageDataGenerator
 from theano.tensor.shared_randomstreams import RandomStreams
 
@@ -31,6 +32,59 @@ from keras.optimizers import SGD, Optimizer
 # tensorflow.python.control_flow_ops = control_flow_ops
 SEED = 1
 np.random.seed(SEED)
+
+class DropoutModified(Layer):
+    '''Applies Dropout to the input. Dropout consists in randomly setting
+    a fraction `p` of input units to 0 at each update during training time,
+    which helps prevent overfitting.
+
+    # Arguments
+        p: float between 0 and 1. Fraction of the input units to drop.
+
+    # References
+        - [Dropout: A Simple Way to Prevent Neural Networks from Overfitting](http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf)
+    '''
+    def __init__(self, p, **kwargs):
+        self.p = p
+        if 0. < self.p < 1.:
+            self.uses_learning_phase = True
+        self.supports_masking = True
+        super(DropoutModified, self).__init__(**kwargs)
+        # self.stateful = True
+
+    def _get_noise_shape(self, x):
+        return None
+
+    def call(self, x, mask=None):
+        print('type of x: {}'.format(type(x)))
+        drop_ages = K.zeros(x._keras_shape[1:])
+        if 0. < self.p < 1.:
+            retain_prob = 1. - self.p
+            random_tensor = K.random_uniform(x.shape, dtype=x.dtype, seed=1)
+            random_binomial = K.random_binomial(x.shape, p=retain_prob, dtype=x.dtype, seed=1)
+
+            normalized_ages = drop_ages/K.max(drop_ages)
+
+            # older parameters tend to be selected... 1 retains, 0 drops
+            drop = (random_tensor < normalized_ages) * random_binomial
+
+            # zeroing the dropped + non_dropped
+            # dropped = drop*drop_ages + drop
+            new_ages = (1+drop_ages) * drop
+
+            new_x = x * drop
+            new_x /= K.mean(drop)
+
+            self.updates = (drop_ages, new_ages)
+
+            x = K.in_train_phase(new_x, x)
+
+        return x
+
+    def get_config(self):
+        config = {'p': self.p}
+        base_config = super(DropoutModified, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
 class SSGD(Optimizer):
     '''Stochastic Selective gradient descent, with support for momentum,
@@ -184,11 +238,15 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algo
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp2')(h)
         if algorithm == 'dropout':
             h = Dropout(0.25, name='drop1')(h)
+        elif algorithm == 'dropout_modified':
+            h = DropoutModified(0.25, name='drop_modified1')(h)
 
         h = Flatten()(h)
         h = Dense(128, activation='relu', name='dense1')(h)
         if algorithm == 'dropout':
             h = Dropout(0.5, name='drop2')(h)
+        elif algorithm == 'dropout_modified':
+            h = DropoutModified(0.5, name='drop_modified2')(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
     elif model == '32x64x128x1024x512':
         # Create the model
@@ -236,7 +294,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algo
     model = Model(input=inputs, output=predictions)
 
     # let's train the model using SGD + momentum (how original).
-    if (algorithm == 'dropout'):
+    if (algorithm == 'dropout' or algorithm == 'dropout_modified' or algorithm == 'nothing'):
         opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
     else:
         opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, algorithm=algorithm)
