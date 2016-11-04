@@ -140,11 +140,11 @@ class SSGD(Optimizer):
 
 
 
-def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algorithm, threshold):
-    weights_file = dataset_name+'_weights.h5'
+def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algorithm, threshold, model):
+    weights_file = dataset_name+ '_' + model +'_weights.h5'
     inputs = Input(shape=shape_inputs, name='inputs')
     predictions = None
-    if dataset_name == 'cifar10':
+    if model == '96x128x256x2048x2048':
         if algorithm == 'dropout':
             h = Dropout(0.9, name='drop_inputs')(inputs)
             h = Convolution2D(96, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(h)
@@ -178,7 +178,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algo
         if algorithm == 'dropout':
             h = Dropout(0.5, name='drop_outputs')(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
-    elif dataset_name == 'mnist':
+    elif model == '32x32x128':
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(inputs)
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv2')(h)
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp2')(h)
@@ -190,6 +190,45 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, algo
         if algorithm == 'dropout':
             h = Dropout(0.5, name='drop2')(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
+    elif model == '32x64x128x1024x512':
+        # Create the model
+
+        h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(inputs)
+        if algorithm == 'dropout':
+            h = Dropout(0.2)(h)
+        h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv2')(h)
+        h = MaxPooling2D(pool_size=pool_size)(h)
+
+        h = Convolution2D(64, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv3')(h)
+        if algorithm == 'dropout':
+            h = Dropout(0.2)(h)
+        h = Convolution2D(64, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv4')(h)
+        h = MaxPooling2D(pool_size=pool_size)(h)
+
+        h = Convolution2D(128, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv5')(h)
+        if algorithm == 'dropout':
+            h = Dropout(0.2)(h)
+        h = Convolution2D(128, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv6')(h)
+        h = MaxPooling2D(pool_size=pool_size)(h)
+
+        h = Flatten()(h)
+        if algorithm == 'dropout':
+            h = Dropout(0.2)(h)
+
+        h = Dense(1024, activation='relu')(h)
+
+        if algorithm == 'dropout':
+            h = Dropout(0.2)(h)
+
+        h = Dense(512, activation='relu')(h)
+
+        if algorithm == 'dropout':
+            h = Dropout(0.2)(h)
+
+        predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
+    else:
+        raise Exception('Unknown model')
+
 
 
     # this creates a model that includes
@@ -239,6 +278,7 @@ def main():
     parser.add_argument('--algorithm', type=str, default='dropout')
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
+    parser.add_argument('--model', type=str, default='96x128x256x2048x2048')
 
     args = parser.parse_args()
     global dataset_name
@@ -311,18 +351,19 @@ def main():
 
     for threshold in args.thresholds:
         
-        filename = "{}-nb_epochs={}_{}_{}.csv".format(dataset_name, nb_epoch, args.algorithm, threshold)
 
         print('algorithm: {}    threshold: {}'.format(args.algorithm, threshold))
 
-        model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, algorithm=args.algorithm, threshold=threshold)
+        model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, algorithm=args.algorithm, threshold=threshold, model=args.model)
 
-        filename = dataset_name+'_'+args.algorithm+'_'+str(threshold)+'_model.txt'
+        filename = dataset_name+'_'+args.algorithm+'_'+str(threshold)+'_model_'+args.model+'.txt'
+        print(model.summary())
         with open(filename, "w") as text_file:
             text_file.write(model.to_json())
 
             # print("{}".format(model.to_json()), file=text_file)
 
+        filename = "{}-nb_epochs={}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.algorithm, threshold, args.model)
         callbacks = [
             history_callback,
             LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
@@ -365,7 +406,7 @@ def main():
                                 validation_data=(X_test, Y_test),
                                 callbacks=callbacks,)
 
-        weights_file = dataset_name + '_' + args.algorithm + '_'+ str(threshold) + '_trained_weights' + '_' + str(nb_epoch) + '.h5'
+        weights_file = dataset_name + '_' + args.algorithm + '_'+ str(threshold) + '_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
         print("Saving Weights File: {} ...".format(weights_file))
         model.save_weights(weights_file)
 
