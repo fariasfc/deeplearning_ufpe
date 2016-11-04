@@ -414,14 +414,14 @@ def main():
 
         model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, use_dropout = args.usedropout, optimizer=args.optimizer, threshold=threshold, model=args.model)
 
-        filename = "_".join([dataset_name, args.optimizer, 'usedropout: ' + args.usedropout, str(threshold),'model', args.model])+'.txt'
+        filename = "_".join([dataset_name, args.optimizer, 'usedropout: ' + str(args.usedropout), str(threshold),'model', args.model])+'.txt'
         print(model.summary())
         with open(filename, "w") as text_file:
             text_file.write(model.to_json())
 
             # print("{}".format(model.to_json()), file=text_file)
 
-        filename = "{}-nb_epochs={}_usedropout:{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.usedropout, threshold, args.optimizer, args.model)
+        filename = "{}-nb_epochs={}_usedropout:{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, str(args.usedropout), threshold, args.optimizer, args.model)
         callbacks = [
             history_callback,
             LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
@@ -464,7 +464,7 @@ def main():
                                 validation_data=(X_test, Y_test),
                                 callbacks=callbacks,)
 
-        weights_file = dataset_name + '_' + args.optimizer + '_usedropout:' + args.usedropout + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
+        weights_file = dataset_name + '_' + args.optimizer + '_usedropout:' + str(args.usedropout) + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
         print("Saving Weights File: {} ...".format(weights_file))
         model.save_weights(weights_file)
 
