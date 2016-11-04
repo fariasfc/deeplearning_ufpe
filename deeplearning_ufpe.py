@@ -295,7 +295,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, use_
     if (optimizer == 'sgd'):
         opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
     else:
-        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=args.optimizer)
+        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer)
 
     print('Compiling model...')
     start_compile = time.time()
