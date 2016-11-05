@@ -72,9 +72,16 @@ class DropoutModified(Layer):
                 normalized = T.abs_(x) / T.max(x)
                 mask = r > normalized
                 new_x = x * mask
-                x = K.in_train_phase(new_x, x)
+            if self.method == 'dropout_lowests_probs':
+                print('droping lowests with probability!')
+                r = K.random_uniform(x.shape, seed=SEED)
+                normalized = T.abs_(x)/T.max(x)
+                mask = r < normalized
+                new_x = x * mask
             else:
                 raise Exception('dropout method unknown' + self.method)
+
+            x = K.in_train_phase(new_x, x)
             #
             # retain_prob = 1. - self.p
             # random_tensor = K.random_uniform(x.shape, dtype=x.dtype, seed=1)
