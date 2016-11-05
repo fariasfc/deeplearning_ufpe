@@ -69,7 +69,7 @@ class DropoutModified(Layer):
             print("using " + self.method)
             if self.method == 'dropout_highests_probs':
                 r = K.random_uniform(x.shape, seed=SEED)
-                normalized = K.abs_(x) / K.max(x)
+                normalized = K.abs(x) / K.max(x)
                 mask = r > normalized
                 new_x = x * mask
                 x = K.in_train_phase(new_x, x)
@@ -77,7 +77,7 @@ class DropoutModified(Layer):
             if self.method == 'dropout_lowests_probs':
                 print('droping lowests with probability!')
                 r = K.random_uniform(x.shape, seed=SEED)
-                normalized = K.abs_(x)/K.max(x)
+                normalized = K.abs(x)/K.max(x)
                 mask = r < normalized
                 new_x = x * mask
                 x = K.in_train_phase(new_x, x)
