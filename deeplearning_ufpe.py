@@ -25,9 +25,9 @@ if K.backend() == 'theano':
     import theano
     import theano.tensor as T
     theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
-    theano.config.optimizer='fast_compile'
-    theano.config.exception_verbosity='high'
-    theano.config.compute_test_value = 'warn'
+    # theano.config.optimizer='fast_compile'
+    # theano.config.exception_verbosity='high'
+    # theano.config.compute_test_value = 'warn'
     from theano.tensor.shared_randomstreams import RandomStreams
 else:
     import tensorflow as tf
