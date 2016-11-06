@@ -4,14 +4,7 @@ import numpy as np
 import time
 import pandas as pd
 from os.path import isfile
-
-# import theano
-# import theano.tensor as T
-# theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
-# theano.config.optimizer='fast_compile'
-# theano.config.exception_verbosity='high'
-# theano.config.compute_test_value = 'warn'
-# from theano.tensor.shared_randomstreams import RandomStreams
+import os
 
 from keras.engine.topology import Layer
 from keras.preprocessing.image import ImageDataGenerator
@@ -28,10 +21,19 @@ from keras.layers.core import Dropout, Flatten, Dense
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import SGD, Optimizer
 
-import tensorflow as tf
-import tensorflow
-from tensorflow.python.ops import control_flow_ops
-tensorflow.python.control_flow_ops = control_flow_ops
+if K.backend() == 'theano':
+    import theano
+    import theano.tensor as T
+    theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
+    theano.config.optimizer='fast_compile'
+    theano.config.exception_verbosity='high'
+    theano.config.compute_test_value = 'warn'
+    from theano.tensor.shared_randomstreams import RandomStreams
+else:
+    import tensorflow as tf
+    import tensorflow
+    from tensorflow.python.ops import control_flow_ops
+    tensorflow.python.control_flow_ops = control_flow_ops
 
 SEED = 1
 np.random.seed(SEED)
