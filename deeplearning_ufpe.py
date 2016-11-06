@@ -3,17 +3,19 @@ import argparse
 import numpy as np
 import time
 import pandas as pd
-import theano
 from os.path import isfile
-import theano.tensor as T
-from keras.engine.topology import Layer
-from keras.preprocessing.image import ImageDataGenerator
-from theano.tensor.shared_randomstreams import RandomStreams
 
-theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
+# import theano
+# import theano.tensor as T
+# theano.config.mode='FAST_RUN'#'DEBUG_MODE'#'FAST_COMPILE'#'DEBUG_MODE'#
 # theano.config.optimizer='fast_compile'
 # theano.config.exception_verbosity='high'
 # theano.config.compute_test_value = 'warn'
+# from theano.tensor.shared_randomstreams import RandomStreams
+
+from keras.engine.topology import Layer
+from keras.preprocessing.image import ImageDataGenerator
+
 from keras.callbacks import History, BaseLogger, LambdaCallback
 from keras.layers import Input, Dense
 from keras.models import Model
@@ -26,10 +28,11 @@ from keras.layers.core import Dropout, Flatten, Dense
 from keras.layers.pooling import MaxPooling2D
 from keras.optimizers import SGD, Optimizer
 
-# import tensorflow as tf
-# import tensorflow
-# from tensorflow.python.ops import control_flow_ops
-# tensorflow.python.control_flow_ops = control_flow_ops
+import tensorflow as tf
+import tensorflow
+from tensorflow.python.ops import control_flow_ops
+tensorflow.python.control_flow_ops = control_flow_ops
+
 SEED = 1
 np.random.seed(SEED)
 
@@ -95,25 +98,34 @@ class DropoutModified(Layer):
                 shape = K.shape(x)
                 random_tensor = K.random_uniform(shape, dtype=x.dtype, seed=1)
                 random_binomial = K.random_binomial(shape, p=retain_prob, dtype=x.dtype, seed=1)
-
-                normalized_ages = self.drop_ages/K.max(self.drop_ages)
-
-                # older parameters tend to be selected... 1 retains, 0 drops
-                mask_lesser = K.lesser(random_tensor, normalized_ages)
+                #
+                drop_max = K.max(self.drop_ages)
+                # if drop_max == 0:
+                #     normalized_ages = self.drop_ages
+                # else:
+                #     normalized_ages = self.drop_ages/drop_max
+                #
+                # # older parameters tend to be selected... 1 retains, 0 drops
+                # mask_lesser = K.lesser(random_tensor, normalized_ages)
+                mask_lesser = K.lesser_equal(random_tensor*drop_max, self.drop_ages)
                 casted_mask = K.cast(mask_lesser, K.floatx())
                 drop = casted_mask * random_binomial
-
-                # zeroing the dropped + non_dropped
-                # dropped = drop*drop_ages + drop
+                #
+                # # zeroing the dropped + non_dropped
+                # # dropped = drop*drop_ages + drop
                 new_ages = (1+self.drop_ages) * drop
-
+                #
                 new_x = x * drop
                 new_x /= K.mean(drop)
-
+                #
                 self.updates = [(self.drop_ages, new_ages)]
-
+                #
                 x = K.in_train_phase(new_x, x)
+                # x = K.in_train_phase(x*random_binomial, x)
                 return x
+            # Original:
+            #     noise_shape = self._get_noise_shape(x)
+            #     x = K.in_train_phase(K.dropout(x, self.p, noise_shape), x)
             else:
                 raise Exception('dropout method unknown' + self.method)
 
