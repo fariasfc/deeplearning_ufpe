@@ -53,6 +53,11 @@ class DropoutModified(Layer):
         super(DropoutModified, self).__init__(**kwargs)
         # self.stateful = True
 
+    def build(self, input_shape):
+        print(input_shape)
+        self.drop_ages = K.zeros((128,) + input_shape[1:], name='drop_ages')
+        print("created drop_ages tensor")
+
     def _get_noise_shape(self, x):
         return None
 
@@ -64,7 +69,10 @@ class DropoutModified(Layer):
         # return x
 
         print('type of x: {}'.format(type(x)))
-        drop_ages = K.zeros(x._keras_shape[1:])
+
+        # for k in dir(self):
+        #     print("{}={}".format(k, getattr(self,k)))
+        # self.drop_ages = K.zeros(K.int_shape(x))
         if 0. < self.p < 1.:
             print("using " + self.method)
             if self.method == 'dropout_highests_probs':
@@ -74,7 +82,7 @@ class DropoutModified(Layer):
                 new_x = x * mask
                 x = K.in_train_phase(new_x, x)
                 return x
-            if self.method == 'dropout_lowests_probs':
+            elif self.method == 'dropout_lowests_probs':
                 print('droping lowests with probability!')
                 r = K.random_uniform(x.shape, seed=SEED)
                 normalized = K.abs(x)/K.max(x)
@@ -82,29 +90,33 @@ class DropoutModified(Layer):
                 new_x = x * mask
                 x = K.in_train_phase(new_x, x)
                 return x
+            elif self.method == 'dropout_oldests':
+                retain_prob = 1. - self.p
+                shape = K.shape(x)
+                random_tensor = K.random_uniform(shape, dtype=x.dtype, seed=1)
+                random_binomial = K.random_binomial(shape, p=retain_prob, dtype=x.dtype, seed=1)
+
+                normalized_ages = self.drop_ages/K.max(self.drop_ages)
+
+                # older parameters tend to be selected... 1 retains, 0 drops
+                mask_lesser = K.lesser(random_tensor, normalized_ages)
+                casted_mask = K.cast(mask_lesser, K.floatx())
+                drop = casted_mask * random_binomial
+
+                # zeroing the dropped + non_dropped
+                # dropped = drop*drop_ages + drop
+                new_ages = (1+self.drop_ages) * drop
+
+                new_x = x * drop
+                new_x /= K.mean(drop)
+
+                self.updates = [(self.drop_ages, new_ages)]
+
+                x = K.in_train_phase(new_x, x)
+                return x
             else:
                 raise Exception('dropout method unknown' + self.method)
 
-            #
-            # retain_prob = 1. - self.p
-            # random_tensor = K.random_uniform(x.shape, dtype=x.dtype, seed=1)
-            # random_binomial = K.random_binomial(x.shape, p=retain_prob, dtype=x.dtype, seed=1)
-            #
-            # normalized_ages = drop_ages/K.max(drop_ages)
-            #
-            # # older parameters tend to be selected... 1 retains, 0 drops
-            # drop = (random_tensor < normalized_ages) * random_binomial
-            #
-            # # zeroing the dropped + non_dropped
-            # # dropped = drop*drop_ages + drop
-            # new_ages = (1+drop_ages) * drop
-            #
-            # new_x = x * drop
-            # new_x /= K.mean(drop)
-            #
-            # self.updates = (drop_ages, new_ages)
-            #
-            # x = K.in_train_phase(new_x, x)
 
         return x
 
