@@ -487,34 +487,34 @@ def main():
         if not args.augmentation:
             print('Not using data augmentation.')
 
-            ##### view values: ####
-            epochs = 25
-            print('Training')
-            for i in range(epochs):
-                print('Epoch', i, '/', epochs)
-                nb_batches = 2
-
-                model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                          Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                          batch_size=batch_size,
-                          verbose=1,
-                          nb_epoch=1,
-                          shuffle=False)
-
-                print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
-
-                # for layer in model.layers:
-                #     if 'DropoutModified' in str(layer):
-                #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
-                #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
-                #         print('drop = {}'.format(K.get_value(layer.drop)))
-
-                # output of the first batch value of the batch after the first fit().
-                # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
-                # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
-
-                # model.reset_states()
-                ### END view values ###
+            # ##### view values: ####
+            # epochs = 25
+            # print('Training')
+            # for i in range(epochs):
+            #     print('Epoch', i, '/', epochs)
+            #     nb_batches = 2
+            #
+            #     model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+            #               Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+            #               batch_size=batch_size,
+            #               verbose=1,
+            #               nb_epoch=1,
+            #               shuffle=False)
+            #
+            #     print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
+            #
+            #     # for layer in model.layers:
+            #     #     if 'DropoutModified' in str(layer):
+            #     #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
+            #     #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
+            #     #         print('drop = {}'.format(K.get_value(layer.drop)))
+            #
+            #     # output of the first batch value of the batch after the first fit().
+            #     # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
+            #     # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+            #
+            #     # model.reset_states()
+            #     ### END view values ###
 
             model.fit(X_train, Y_train,
                       batch_size=batch_size,
