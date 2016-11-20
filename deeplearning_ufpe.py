@@ -60,7 +60,7 @@ class DropoutModified(Layer):
 
     def build(self, input_shape):
         print(input_shape)
-        self.drop_ages = K.zeros((128,) + input_shape[1:], name='drop_ages')
+        self.drop_ages = K.ones((128,) + input_shape[1:], name='drop_ages')
         print("created drop_ages tensor")
 
     def _get_noise_shape(self, x):
@@ -109,16 +109,21 @@ class DropoutModified(Layer):
                 #
                 # # older parameters tend to be selected... 1 retains, 0 drops
                 # mask_lesser = K.lesser(random_tensor, normalized_ages)
-                mask_lesser = K.lesser_equal(random_tensor*drop_max, self.drop_ages)
-                casted_mask = K.cast(mask_lesser, K.floatx())
-                drop = casted_mask * random_binomial
+                self.mask_lesser = K.lesser_equal(random_tensor*drop_max, self.drop_ages)
+                self.casted_mask = K.cast(self.mask_lesser, K.floatx())
+                self.drop = self.casted_mask * random_binomial
                 #
                 # # zeroing the dropped + non_dropped
                 # # dropped = drop*drop_ages + drop
-                new_ages = (1+self.drop_ages) * drop
+                new_ages = (1+self.drop_ages) * self.drop
                 #
-                new_x = x * drop
-                new_x /= K.mean(drop)
+                new_x = x * self.drop
+                drop_mean = K.mean(self.drop)
+                drop_mean = K.print_tensor(drop_mean, 'drop_mean: ')
+                if drop_mean != 0:
+                    new_x /= K.mean(self.drop)
+                # print(new_x)
+                new_x = K.print_tensor(new_x, 'this is new_x: ')
                 #
                 self.updates = [(self.drop_ages, new_ages)]
                 #
@@ -386,6 +391,7 @@ def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
+    parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
     # parser.add_argument('--algorithm', type=str, default='nothing')
     parser.add_argument('--optimizer', type=str, default='sgd')
     parser.add_argument('--verbose', type=int, default=1)
@@ -399,7 +405,7 @@ def main():
     dataset_name = args.dataset
     print(args)
     nb_classes = 10
-    nb_epoch = 200
+    nb_epoch = args.nb_epochs
     batch_size = 128
     data_augmentation = False
     print(dataset_name)
@@ -480,6 +486,36 @@ def main():
         ]
         if not args.augmentation:
             print('Not using data augmentation.')
+
+            ##### view values: ####
+            epochs = 25
+            print('Training')
+            for i in range(epochs):
+                print('Epoch', i, '/', epochs)
+                nb_batches = 2
+
+                model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                          Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                          batch_size=batch_size,
+                          verbose=1,
+                          nb_epoch=1,
+                          shuffle=False)
+
+                print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
+
+                # for layer in model.layers:
+                #     if 'DropoutModified' in str(layer):
+                #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
+                #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
+                #         print('drop = {}'.format(K.get_value(layer.drop)))
+
+                # output of the first batch value of the batch after the first fit().
+                # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
+                # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+
+                # model.reset_states()
+                ### END view values ###
+
             model.fit(X_train, Y_train,
                       batch_size=batch_size,
                       nb_epoch=nb_epoch,
