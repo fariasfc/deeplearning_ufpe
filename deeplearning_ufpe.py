@@ -36,7 +36,24 @@ else:
     tensorflow.python.control_flow_ops = control_flow_ops
 
 SEED = 1
+BATCH_SIZE = 128
 np.random.seed(SEED)
+
+def get_prefix(args, filetype, threshold=None):
+    if filetype == 'initial_weights':
+        prefix = args.dataset +'_model=' + args.model + "_weights.h5"
+    elif filetype in ['trained', 'csv', 'model']:
+        prefix = dataset_name +  '_nbepochs=' + str(args.nb_epochs) + '_model=' + args.model + '_opt=' + args.optimizer + '_dropoutmethod=' + args.dropout_method + '_scale=' + str(args.scale) + '_threshold=' + str(threshold)
+        if filetype == 'trained':
+            prefix = prefix + '_trained_weights.h5'
+        elif filetype == 'csv':
+            prefix = prefix + '.csv'
+        else:
+            prefix = prefix + '.txt'
+    else:
+        raise Exception("filetype must be specified")
+
+    return prefix
 
 class DropoutModified(Layer):
     '''Applies Dropout to the input. Dropout consists in randomly setting
@@ -60,7 +77,13 @@ class DropoutModified(Layer):
 
     def build(self, input_shape):
         print(input_shape)
-        self.drop_ages = K.ones((128,) + input_shape[1:], name='drop_ages')
+        # self.drop_ages = K.ones((BATCH_SIZE,) + input_shape[1:], name='drop_ages')
+        # self.drop_ages = K.random_binomial(input_shape[1:], p=0.5, seed=1)
+
+        # self.drop_ages = tf.get_variable('drop_ages', dtype=np.float32, initializer=tf.random_uniform(input_shape[1:], 0, 1, dtype=np.int32, seed=SEED))
+        self.drop_ages = K.ones(input_shape[1:], name='drop_ages')
+        self.drop_ages = self.drop_ages * K.random_uniform(input_shape[1:], low=0.0, high=10) * K.random_binomial(input_shape[1:], p=0.5, seed=1)
+        # self.drop_ages[:,:,:]=1
         print("created drop_ages tensor")
 
     def _get_noise_shape(self, x):
@@ -98,8 +121,8 @@ class DropoutModified(Layer):
             elif self.method == 'dropout_oldests':
                 retain_prob = 1. - self.p
                 shape = K.shape(x)
-                random_tensor = K.random_uniform(shape, dtype=x.dtype, seed=1)
-                random_binomial = K.random_binomial(shape, p=retain_prob, dtype=x.dtype, seed=1)
+                random_tensor = K.random_uniform(shape[1:], dtype=x.dtype, seed=1)
+                # random_binomial = K.random_binomial(shape[1:], p=retain_prob, dtype=x.dtype, seed=1)
                 #
                 drop_max = K.max(self.drop_ages)
                 # if drop_max == 0:
@@ -109,23 +132,27 @@ class DropoutModified(Layer):
                 #
                 # # older parameters tend to be selected... 1 retains, 0 drops
                 # mask_lesser = K.lesser(random_tensor, normalized_ages)
-                self.mask_lesser = K.lesser_equal(random_tensor*drop_max, self.drop_ages)
-                self.casted_mask = K.cast(self.mask_lesser, K.floatx())
-                self.drop = self.casted_mask * random_binomial
+                self.mask_lesser = K.lesser_equal(random_tensor, self.drop_ages/drop_max)
+                drop = K.cast(self.mask_lesser, K.floatx())
+                # self.casted_mask = K.cast(self.mask_lesser, K.floatx())
+                # expanded_dropout_matrix = K.repeat(self.casted_mask, BATCH_SIZE)
+
+                # self.drop = self.casted_mask * random_binomial
+                # self.drop = self.casted_mask
                 #
                 # # zeroing the dropped + non_dropped
                 # # dropped = drop*drop_ages + drop
-                new_ages = (1+self.drop_ages) * self.drop
+                new_ages = (1+self.drop_ages) * drop
                 #
-                new_x = x * self.drop
-                drop_mean = K.mean(self.drop)
-                drop_mean = K.print_tensor(drop_mean, 'drop_mean: ')
-                if drop_mean != 0:
-                    new_x /= K.mean(self.drop)
-                # print(new_x)
-                new_x = K.print_tensor(new_x, 'this is new_x: ')
-                #
-                self.updates = [(self.drop_ages, new_ages)]
+                new_x = x * drop
+                # drop_mean = K.mean(self.drop)
+                # drop_mean = K.print_tensor(drop_mean, 'drop_mean: ')
+                # if drop_mean != 0:
+                #     new_x /= K.mean(self.drop)
+                # # print(new_x)
+                # new_x = K.print_tensor(new_x, 'this is new_x: ')
+
+                self.updates = [self.drop_ages, new_ages]
                 #
                 x = K.in_train_phase(new_x, x)
                 # x = K.in_train_phase(x*random_binomial, x)
@@ -155,7 +182,7 @@ class SSGD(Optimizer):
         nesterov: boolean. Whether to apply Nesterov momentum.
     '''
     def __init__(self, lr=0.01, momentum=0., decay=0.,
-                 nesterov=False, threshold=0, optimizer=None, **kwargs):
+                 nesterov=False, threshold=0, optimizer=None, scale=False, **kwargs):
         super(SSGD, self).__init__(**kwargs)
         self.__dict__.update(locals())
         self.iterations = K.variable(0.)
@@ -165,6 +192,7 @@ class SSGD(Optimizer):
         self.decay = K.variable(decay)
         self.inital_decay = decay
         self.optimizer = optimizer
+        self.scale = scale
 
     def get_updates(self, params, constraints, loss):
         grads = self.get_gradients(loss, params)
@@ -202,7 +230,7 @@ class SSGD(Optimizer):
                 new_g = g * mask
             elif self.optimizer == 'dropgrads':
                 print("dropgrads!")
-                mask = K.random_binomial(g.shape, p=1-threshold, seed=SEED)
+                mask = K.random_binomial(K.get_variable_shape(g), p=1-threshold, seed=SEED)
                 new_g = mask*g
             elif self.optimizer == 'droplowests':
                 print("droplowests!")
@@ -222,6 +250,9 @@ class SSGD(Optimizer):
                 new_g = g * mask
             else:
                 raise Exception('invalid optimizer')
+
+            if self.scale:
+                new_g = new_g/(1-threshold)
 
             v = self.momentum * m - lr * new_g  # velocity
             self.updates.append(K.update(m, v))
@@ -250,8 +281,12 @@ class SSGD(Optimizer):
 
 
 
-def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, dropout_method, optimizer, threshold, model):
-    weights_file = dataset_name+ '_' + model +'_weights.h5'
+def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, threshold, args):
+    weights_file = get_prefix(args, 'initial_weights')
+    dropout_method = args.dropout_method
+    optimizer = args.optimizer
+    scale = args.scale
+    model = args.model
     inputs = Input(shape=shape_inputs, name='inputs')
     predictions = None
     # if model == '96x128x256x2048x2048':
@@ -355,7 +390,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, drop
     if (optimizer == 'sgd'):
         opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
     else:
-        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer)
+        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale)
 
     print('Compiling model...')
     start_compile = time.time()
@@ -394,6 +429,7 @@ def main():
     parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
     # parser.add_argument('--algorithm', type=str, default='nothing')
     parser.add_argument('--optimizer', type=str, default='sgd')
+    parser.add_argument('--scale', action='store_true', default=False)
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
     # parser.add_argument('--usedropout', action='store_true', default=False)
@@ -406,7 +442,7 @@ def main():
     print(args)
     nb_classes = 10
     nb_epoch = args.nb_epochs
-    batch_size = 128
+    batch_size = BATCH_SIZE
     data_augmentation = False
     print(dataset_name)
     if dataset_name == 'cifar10':
@@ -468,9 +504,9 @@ def main():
 
     for threshold in args.thresholds:
         print("threshold: {}".format(threshold))
-        model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides,  dropout_method=args.dropout_method, optimizer=args.optimizer, threshold=threshold, model=args.model)
+        model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, threshold=threshold, args=args)
 
-        filename = "_".join([dataset_name, args.optimizer, args.dropout_method, str(threshold),'model', args.model])+'.txt'
+        filename = get_prefix(args, 'model', threshold)#"_".join([dataset_name, args.optimizer, args.dropout_method, 'scale='+str(args.scale), str(threshold),'model', args.model])+'.txt'
         print(model.summary())
         print("writing model to " + filename)
         with open(filename, "w") as text_file:
@@ -478,7 +514,7 @@ def main():
 
             # print("{}".format(model.to_json()), file=text_file)
 
-        filename = "{}-nb_epochs={}_{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.dropout_method, threshold, args.optimizer, args.model)
+        filename = get_prefix(args, 'csv', threshold) #"{}-nb_epochs={}_{}_{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.dropout_method, 'scale='+str(args.scale), threshold, args.optimizer, args.model)
         print('saving csv in ' + filename)
         callbacks = [
             history_callback,
@@ -552,7 +588,7 @@ def main():
                                 validation_data=(X_test, Y_test),
                                 callbacks=callbacks,)
 
-        weights_file = dataset_name + '_' + args.optimizer + '_' + args.dropout_method + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
+        weights_file = get_prefix(args, 'trained', threshold)#dataset_name + '_' + args.optimizer + '_' + args.dropout_method + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
         print("Saving Weights File: {} ...".format(weights_file))
         model.save_weights(weights_file)
 
