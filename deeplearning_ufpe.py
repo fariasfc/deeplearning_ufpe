@@ -230,7 +230,7 @@ class SSGD(Optimizer):
                 new_g = g * mask
             elif self.optimizer == 'dropgrads':
                 print("dropgrads!")
-                mask = K.random_binomial(K.get_variable_shape(g), p=1-threshold, seed=SEED)
+                mask = K.random_binomial(g.shape, p=1-threshold, seed=SEED)
                 new_g = mask*g
             elif self.optimizer == 'droplowests':
                 print("droplowests!")
