@@ -282,7 +282,7 @@ class SSGD(Optimizer):
 
 
 def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, threshold, index, args):
-    weights_file = get_prefix(args, 'initial_weights_', None, index)
+    weights_file = get_prefix(args, 'initial_weights', None, index)
     dropout_method = args.dropout_method
     optimizer = args.optimizer
     scale = args.scale
