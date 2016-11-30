@@ -515,7 +515,7 @@ def main():
 
                 # print("{}".format(model.to_json()), file=text_file)
 
-            filename = get_prefix(args, 'csv', threshold) #"{}-nb_epochs={}_{}_{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.dropout_method, 'scale='+str(args.scale), threshold, args.optimizer, args.model)
+            filename = get_prefix(args, 'csv', threshold, index=index) #"{}-nb_epochs={}_{}_{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.dropout_method, 'scale='+str(args.scale), threshold, args.optimizer, args.model)
             print('saving csv in ' + filename)
             callbacks = [
                 history_callback,
@@ -589,7 +589,7 @@ def main():
                                     validation_data=(X_test, Y_test),
                                     callbacks=callbacks,)
 
-            weights_file = get_prefix(args, 'trained', threshold)#dataset_name + '_' + args.optimizer + '_' + args.dropout_method + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
+            weights_file = get_prefix(args, 'trained', threshold, index)#dataset_name + '_' + args.optimizer + '_' + args.dropout_method + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
             print("Saving Weights File: {} ...".format(weights_file))
             model.save_weights(weights_file)
 
