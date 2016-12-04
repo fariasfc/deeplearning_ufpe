@@ -526,6 +526,7 @@ def main():
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
+    parser.add_argument('--nb_runs', type=int, metavar='E', default=5)
     # parser.add_argument('--algorithm', type=str, default='nothing')
     parser.add_argument('--optimizer', type=str, default='sgd')
     parser.add_argument('--scale', action='store_true', default=False)
@@ -602,7 +603,7 @@ def main():
     # with tf.device('/gpu:0'):
 
     for threshold in args.thresholds:
-        for index in range(30):
+        for index in range(args.nb_runs):
             print("threshold: {}".format(threshold))
             model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, threshold=threshold, index=index, args=args)
 
