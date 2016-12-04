@@ -227,7 +227,9 @@ class DropoutDecayed(Layer):
         #     print("{}={}".format(k, getattr(self,k)))
         # self.drop_ages = K.zeros(K.int_shape(x))
 
-        p = self.p + self.decay*self.iterations
+        p = self.p
+
+        p += self.decay*self.iterations
         self.updates.append(K.update_add(self.iterations, 1))
 
 
