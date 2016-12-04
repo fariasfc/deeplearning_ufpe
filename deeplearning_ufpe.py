@@ -234,7 +234,18 @@ class DropoutDecayed(Layer):
 
 
         noise_shape = self._get_noise_shape(x)
-        x = K.in_train_phase(K.dropout(x, p, noise_shape), x)
+
+
+        rng = RandomStreams(seed=SEED)
+        retain_prob = 1. - p
+
+
+        random_tensor = rng.binomial(x.shape, p=retain_prob, dtype=x.dtype)
+
+        x_new = x * random_tensor
+        x_new /= retain_prob
+
+        x = K.in_train_phase(x_new, x)
 
         return x
 
