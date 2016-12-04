@@ -171,6 +171,76 @@ class DropoutModified(Layer):
         base_config = super(DropoutModified, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
+class DropoutDecayed(Layer):
+    '''Applies Dropout to the input. Dropout consists in randomly setting
+    a fraction `p` of input units to 0 at each update during training time,
+    which helps prevent overfitting.
+
+    # Arguments
+        p: float between 0 and 1. Fraction of the input units to drop.
+
+    # References
+        - [Dropout: A Simple Way to Prevent Neural Networks from Overfitting](http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf)
+    '''
+    def __init__(self, p_start, p_end, nb_iterations, **kwargs):
+        self.p_start = p_start
+        self.p_end = p_end
+
+        self.decay = (p_end - p_start) / nb_iterations
+
+        self.supports_masking = True
+        self.iterations = K.variable(0.)
+        self.p = K.variable(p_start)
+
+        if 0. < self.p_start < 1. and 0. < self.p_end < 1.:
+            self.uses_learning_phase = True
+        self.updates = []
+
+        super(DropoutDecayed, self).__init__(**kwargs)
+        # self.stateful = True
+
+    def build(self, input_shape):
+        print(input_shape)
+        # self.drop_ages = K.ones((BATCH_SIZE,) + input_shape[1:], name='drop_ages')
+        # self.drop_ages = K.random_binomial(input_shape[1:], p=0.5, seed=1)
+
+        # self.drop_ages = tf.get_variable('drop_ages', dtype=np.float32, initializer=tf.random_uniform(input_shape[1:], 0, 1, dtype=np.int32, seed=SEED))
+        # self.drop_ages = K.ones(input_shape[1:], name='drop_ages')
+        # self.drop_ages = self.drop_ages * K.random_uniform(input_shape[1:], low=0.0, high=10) * K.random_binomial(input_shape[1:], p=0.5, seed=1)
+        # self.drop_ages[:,:,:]=1
+
+        print("built DropoutDecayed")
+
+    def _get_noise_shape(self, x):
+        return None
+
+    def call(self, x, mask=None):
+        # Original:
+        # if 0. < self.p < 1.:
+        #     noise_shape = self._get_noise_shape(x)
+        #     x = K.in_train_phase(K.dropout(x, self.p, noise_shape), x)
+        # return x
+
+        print('type of x: {}'.format(type(x)))
+
+        # for k in dir(self):
+        #     print("{}={}".format(k, getattr(self,k)))
+        # self.drop_ages = K.zeros(K.int_shape(x))
+
+        p = self.p + self.decay*self.iterations
+        self.updates.append(K.update_add(self.iterations, 1))
+
+
+        noise_shape = self._get_noise_shape(x)
+        x = K.in_train_phase(K.dropout(x, p, noise_shape), x)
+
+        return x
+
+    def get_config(self):
+        config = {'p_start': self.p_start, 'p_end': self.p_end, 'decay': self.decay}
+        base_config = super(DropoutDecayed, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
 class SSGD(Optimizer):
     '''Stochastic Selective gradient descent, with support for momentum,
     learning rate decay, and Nesterov momentum.
@@ -331,7 +401,11 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
         if dropout_method == 'original':
             h = Dropout(drop_rate, name='drop1')(h)
         elif 'dropout' in dropout_method:
-            h = DropoutModified(drop_rate, name='drop_modified1' + dropout_method, method=dropout_method)(h)
+            if dropout_method == 'dropout_decayed':
+                h = DropoutDecayed(drop_rate, 0.01, args.nb_epochs*50000/128)(h)
+            else:
+                h = DropoutModified(drop_rate, name='drop_modified1' + dropout_method, method=dropout_method)(h)
+
 
         h = Flatten()(h)
         h = Dense(128, activation='relu', name='dense1')(h)
@@ -339,7 +413,10 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
         if dropout_method == 'original':
             h = Dropout(drop_rate, name='drop2')(h)
         elif 'dropout' in dropout_method:
-            h = DropoutModified(drop_rate, name='drop_modified2' + dropout_method, method=dropout_method)(h)
+            if dropout_method == 'dropout_decayed':
+                h = DropoutDecayed(drop_rate, 0.01, args.nb_epochs * 50000/128)(h)
+            else:
+                h = DropoutModified(drop_rate, name='drop_modified2' + dropout_method, method=dropout_method)(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
     # elif model == '32x64x128x1024x512':
     #     # Create the model
@@ -526,34 +603,42 @@ def main():
                 if not args.augmentation:
                     print('Not using data augmentation.')
 
-                    # ##### view values: ####
-                    # epochs = 25
-                    # print('Training')
-                    # for i in range(epochs):
-                    #     print('Epoch', i, '/', epochs)
-                    #     nb_batches = 2
-                    #
-                    #     model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                    #               Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                    #               batch_size=batch_size,
-                    #               verbose=1,
-                    #               nb_epoch=1,
-                    #               shuffle=False)
-                    #
-                    #     print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
-                    #
-                    #     # for layer in model.layers:
-                    #     #     if 'DropoutModified' in str(layer):
-                    #     #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
-                    #     #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
-                    #     #         print('drop = {}'.format(K.get_value(layer.drop)))
-                    #
-                    #     # output of the first batch value of the batch after the first fit().
-                    #     # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
-                    #     # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
-                    #
-                    #     # model.reset_states()
-                    #     ### END view values ###
+                    ##### view values: ####
+                    epochs = 25
+                    print('Training')
+                    for i in range(epochs):
+                        print('Epoch', i, '/', epochs)
+                        # nb_batches = 2
+
+                        # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                        #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                        #           batch_size=batch_size,
+                        #           verbose=1,
+                        #           nb_epoch=1,
+                        #           shuffle=False)
+                        l = model.layers[4]
+                        print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
+
+                        model.fit(X_train,
+                                  Y_train,
+                                  batch_size=batch_size,
+                                  verbose=1,
+                                  nb_epoch=1,
+                                  shuffle=False)
+                        # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
+
+                        # for layer in model.layers:
+                        #     if 'DropoutModified' in str(layer):
+                        #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
+                        #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
+                        #         print('drop = {}'.format(K.get_value(layer.drop)))
+
+                        # output of the first batch value of the batch after the first fit().
+                        # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
+                        # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+
+                        # model.reset_states()
+                        ### END view values ###
 
                     model.fit(X_train, Y_train,
                               batch_size=batch_size,
