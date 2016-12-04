@@ -607,6 +607,9 @@ def main():
             model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, threshold=threshold, index=index, args=args)
 
             filename = get_prefix(args, 'model', threshold, index=index)#"_".join([dataset_name, args.optimizer, args.dropout_method, 'scale='+str(args.scale), str(threshold),'model', args.model])+'.txt'
+            for l in model.layers:
+                print(l.get_config())
+
             print(model.summary())
             print("writing model to " + filename)
             with open(filename, "w") as text_file:
