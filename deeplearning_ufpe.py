@@ -192,7 +192,7 @@ class DropoutDecayed(Layer):
         self.iterations = K.variable(0.)
         self.p = K.variable(p_start)
 
-        if 0. < self.p_start < 1. and 0. < self.p_end < 1.:
+        if 0. < p_start < 1. and 0. < p_end < 1.:
             self.uses_learning_phase = True
         self.updates = []
 
