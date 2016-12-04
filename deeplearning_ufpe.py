@@ -47,11 +47,19 @@ def get_prefix(args, filetype, threshold=None, index=None):
         if filetype == 'trained':
             prefix = prefix + '_trained_weights.h5'
         elif filetype == 'csv':
+            if args.dropout_method == 'dropout_decayed':
+                droprates = 'drop_rates='
+                for drop_rate in args.drop_rates:
+                    droprates += str(drop_rate) + '_'
+                prefix = prefix + droprates
+
             prefix = prefix + '.csv'
         else:
             prefix = prefix + '.txt'
     else:
         raise Exception("filetype must be specified")
+
+    print(prefix)
 
     return prefix
 
@@ -415,7 +423,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
             h = Dropout(drop_rate, name='drop1')(h)
         elif 'dropout' in dropout_method:
             if dropout_method == 'dropout_decayed':
-                h = DropoutDecayed(drop_rate, 0.01, args.nb_epochs*50000/128)(h)
+                h = DropoutDecayed(args.drop_rates[0], args.drop_rates[1], args.nb_epochs*50000/128)(h)
             else:
                 h = DropoutModified(drop_rate, name='drop_modified1' + dropout_method, method=dropout_method)(h)
 
@@ -427,7 +435,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
             h = Dropout(drop_rate, name='drop2')(h)
         elif 'dropout' in dropout_method:
             if dropout_method == 'dropout_decayed':
-                h = DropoutDecayed(drop_rate, 0.01, args.nb_epochs * 50000/128)(h)
+                h = DropoutDecayed(args.drop_rates[2], args.drop_rates[3], args.nb_epochs * 50000/128)(h)
             else:
                 h = DropoutModified(drop_rate, name='drop_modified2' + dropout_method, method=dropout_method)(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
@@ -516,6 +524,7 @@ def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
+    parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
     # parser.add_argument('--algorithm', type=str, default='nothing')
     parser.add_argument('--optimizer', type=str, default='sgd')
