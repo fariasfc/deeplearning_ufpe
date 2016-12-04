@@ -594,108 +594,106 @@ def main():
 
     for threshold in args.thresholds:
         for index in range(30):
-            for optimizer, threshold in [('sgd', 0), ('dropgrads', 0.3)]:
-                args.optimizer = optimizer
-                print("threshold: {}".format(threshold))
-                model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, threshold=threshold, index=index, args=args)
+            print("threshold: {}".format(threshold))
+            model = create_model(X_train.shape[1:], nb_classes, kernel_size=kernel_size, pool_size=pool_size, strides=strides, threshold=threshold, index=index, args=args)
 
-                filename = get_prefix(args, 'model', threshold, index=index)#"_".join([dataset_name, args.optimizer, args.dropout_method, 'scale='+str(args.scale), str(threshold),'model', args.model])+'.txt'
-                print(model.summary())
-                print("writing model to " + filename)
-                with open(filename, "w") as text_file:
-                    text_file.write(model.to_json())
+            filename = get_prefix(args, 'model', threshold, index=index)#"_".join([dataset_name, args.optimizer, args.dropout_method, 'scale='+str(args.scale), str(threshold),'model', args.model])+'.txt'
+            print(model.summary())
+            print("writing model to " + filename)
+            with open(filename, "w") as text_file:
+                text_file.write(model.to_json())
 
-                    # print("{}".format(model.to_json()), file=text_file)
+                # print("{}".format(model.to_json()), file=text_file)
 
-                filename = get_prefix(args, 'csv', threshold, index=index) #"{}-nb_epochs={}_{}_{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.dropout_method, 'scale='+str(args.scale), threshold, args.optimizer, args.model)
-                print('saving csv in ' + filename)
-                callbacks = [
-                    history_callback,
-                    LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
-                ]
-                if not args.augmentation:
-                    print('Not using data augmentation.')
+            filename = get_prefix(args, 'csv', threshold, index=index) #"{}-nb_epochs={}_{}_{}_{}_{}_{}.csv".format(dataset_name, nb_epoch, args.dropout_method, 'scale='+str(args.scale), threshold, args.optimizer, args.model)
+            print('saving csv in ' + filename)
+            callbacks = [
+                history_callback,
+                LambdaCallback(on_epoch_end=lambda epoch, logs: pd.DataFrame.from_dict(history_callback.history).to_csv(filename))
+            ]
+            if not args.augmentation:
+                print('Not using data augmentation.')
 
-                    # ##### view values: ####
-                    # epochs = 25
-                    # print('Training')
-                    # for i in range(epochs):
-                    #     print('Epoch', i, '/', epochs)
-                    #     # nb_batches = 2
-                    #
-                    #     # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                    #     #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                    #     #           batch_size=batch_size,
-                    #     #           verbose=1,
-                    #     #           nb_epoch=1,
-                    #     #           shuffle=False)
-                    #     l = model.layers[4]
-                    #     print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
-                    #
-                    #     model.fit(X_train,
-                    #               Y_train,
-                    #               batch_size=batch_size,
-                    #               verbose=1,
-                    #               nb_epoch=1,
-                    #               shuffle=False)
-                    #     # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
-                    #
-                    #     # for layer in model.layers:
-                    #     #     if 'DropoutModified' in str(layer):
-                    #     #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
-                    #     #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
-                    #     #         print('drop = {}'.format(K.get_value(layer.drop)))
-                    #
-                    #     # output of the first batch value of the batch after the first fit().
-                    #     # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
-                    #     # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
-                    #
-                    #     # model.reset_states()
-                    #     ### END view values ###
-
-                    model.fit(X_train, Y_train,
-                              batch_size=batch_size,
-                              nb_epoch=nb_epoch,
-                              validation_data=(X_test, Y_test),
-                              shuffle=True,
-                              callbacks=callbacks, verbose=args.verbose)
-                    print(callbacks)
-                else:
-                    print('Using real-time data augmentation.')
-
-                    # this will do preprocessing and realtime data augmentation
-                    datagen = ImageDataGenerator(
-                        featurewise_center=False,  # set input mean to 0 over the dataset
-                        samplewise_center=False,  # set each sample mean to 0
-                        featurewise_std_normalization=False,  # divide inputs by std of the dataset
-                        samplewise_std_normalization=False,  # divide each input by its std
-                        zca_whitening=False,  # apply ZCA whitening
-                        rotation_range=0,  # randomly rotate images in the range (degrees, 0 to 180)
-                        width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
-                        height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
-                        horizontal_flip=True,  # randomly flip images
-                        vertical_flip=False)  # randomly flip images
-
-                    # compute quantities required for featurewise normalization
-                    # (std, mean, and principal components if ZCA whitening is applied)
-                    datagen.fit(X_train)
-
-
-                    # fit the model on the batches generated by datagen.flow()
-                    model.fit_generator(datagen.flow(X_train, Y_train,
-                                        batch_size=batch_size),
-                                        samples_per_epoch=X_train.shape[0],
-                                        nb_epoch=nb_epoch,
-                                        validation_data=(X_test, Y_test),
-                                        callbacks=callbacks,)
-
-                weights_file = get_prefix(args, 'trained', threshold, index)#dataset_name + '_' + args.optimizer + '_' + args.dropout_method + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
-                print("Saving Weights File: {} ...".format(weights_file))
-                model.save_weights(weights_file)
-
-                # df = pd.DataFrame.from_dict(history_callback.history)
+                # ##### view values: ####
+                # epochs = 25
+                # print('Training')
+                # for i in range(epochs):
+                #     print('Epoch', i, '/', epochs)
+                #     # nb_batches = 2
                 #
-                # df.to_csv(filename)
+                #     # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                #     #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                #     #           batch_size=batch_size,
+                #     #           verbose=1,
+                #     #           nb_epoch=1,
+                #     #           shuffle=False)
+                #     l = model.layers[4]
+                #     print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
+                #
+                #     model.fit(X_train,
+                #               Y_train,
+                #               batch_size=batch_size,
+                #               verbose=1,
+                #               nb_epoch=1,
+                #               shuffle=False)
+                #     # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
+                #
+                #     # for layer in model.layers:
+                #     #     if 'DropoutModified' in str(layer):
+                #     #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
+                #     #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
+                #     #         print('drop = {}'.format(K.get_value(layer.drop)))
+                #
+                #     # output of the first batch value of the batch after the first fit().
+                #     # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
+                #     # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+                #
+                #     # model.reset_states()
+                #     ### END view values ###
+
+                model.fit(X_train, Y_train,
+                          batch_size=batch_size,
+                          nb_epoch=nb_epoch,
+                          validation_data=(X_test, Y_test),
+                          shuffle=True,
+                          callbacks=callbacks, verbose=args.verbose)
+                print(callbacks)
+            else:
+                print('Using real-time data augmentation.')
+
+                # this will do preprocessing and realtime data augmentation
+                datagen = ImageDataGenerator(
+                    featurewise_center=False,  # set input mean to 0 over the dataset
+                    samplewise_center=False,  # set each sample mean to 0
+                    featurewise_std_normalization=False,  # divide inputs by std of the dataset
+                    samplewise_std_normalization=False,  # divide each input by its std
+                    zca_whitening=False,  # apply ZCA whitening
+                    rotation_range=0,  # randomly rotate images in the range (degrees, 0 to 180)
+                    width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
+                    height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
+                    horizontal_flip=True,  # randomly flip images
+                    vertical_flip=False)  # randomly flip images
+
+                # compute quantities required for featurewise normalization
+                # (std, mean, and principal components if ZCA whitening is applied)
+                datagen.fit(X_train)
+
+
+                # fit the model on the batches generated by datagen.flow()
+                model.fit_generator(datagen.flow(X_train, Y_train,
+                                    batch_size=batch_size),
+                                    samples_per_epoch=X_train.shape[0],
+                                    nb_epoch=nb_epoch,
+                                    validation_data=(X_test, Y_test),
+                                    callbacks=callbacks,)
+
+            weights_file = get_prefix(args, 'trained', threshold, index)#dataset_name + '_' + args.optimizer + '_' + args.dropout_method + '_'+ str(threshold) + '_'+ args.optimizer + '_' +'_trained_weights' + '_' + str(nb_epoch) + '_' + args.model + '.h5'
+            print("Saving Weights File: {} ...".format(weights_file))
+            model.save_weights(weights_file)
+
+            # df = pd.DataFrame.from_dict(history_callback.history)
+            #
+            # df.to_csv(filename)
 
 if __name__ == "__main__":
     main()
