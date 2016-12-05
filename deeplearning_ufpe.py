@@ -44,14 +44,16 @@ def get_prefix(args, filetype, threshold=None, index=None):
         prefix = args.dataset +'_model=' + args.model + "_idx=" + str(index) + "_weights.h5"
     elif filetype in ['trained', 'csv', 'model']:
         prefix = dataset_name +  '_nbepochs=' + str(args.nb_epochs) + '_model=' + args.model + '_opt=' + args.optimizer + '_dropoutmethod=' + args.dropout_method + '_scale=' + str(args.scale) + '_threshold=' + str(threshold) + '_index=' + str(index)
+
+        if args.dropout_method == 'dropout_decayed':
+            droprates = 'drop_rates='
+            for drop_rate in args.drop_rates:
+                droprates += str(drop_rate) + '_'
+            prefix = prefix + droprates
+
         if filetype == 'trained':
             prefix = prefix + '_trained_weights.h5'
         elif filetype == 'csv':
-            if args.dropout_method == 'dropout_decayed':
-                droprates = 'drop_rates='
-                for drop_rate in args.drop_rates:
-                    droprates += str(drop_rate) + '_'
-                prefix = prefix + droprates
 
             prefix = prefix + '.csv'
         else:
@@ -508,12 +510,19 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
     # with open(filename, "w") as text_file:
     #     print("{}".format(model_yaml), file=text_file)
 
-    if isfile(weights_file):
-        print("Loading Weights File: {} ...".format(weights_file))
-        model.load_weights(weights_file, by_name=True)
+    if args.transfer_learning:
+        print("Transfer Learning: {}".format(weights_file))
+        trained_weights_file = get_prefix(args, 'trained', None, index)
+        assert isfile(trained_weights_file), "Transfer Learning activated, but file {} not found".format(trained_weights_file)
+        model.load_weights(trained_weights_file, by_name=True)
+        print("Loaded weights from: {}".format(trained_weights_file))
     else:
-        print("Saving Weights File: {} ...".format(weights_file))
-        model.save_weights(weights_file)
+        if isfile(weights_file):
+            print("Loading Weights File: {} ...".format(weights_file))
+            model.load_weights(weights_file, by_name=True)
+        else:
+            print("Saving Weights File: {} ...".format(weights_file))
+            model.save_weights(weights_file)
 
     return model
 
@@ -532,6 +541,7 @@ def main():
     parser.add_argument('--scale', action='store_true', default=False)
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
+    parser.add_argument('--transfer_learning', action='store_true', default=False)
     # parser.add_argument('--usedropout', action='store_true', default=False)
     parser.add_argument('--model', type=str, default='32x32x128')
     parser.add_argument('--dropout_method', type=str, default='no')
