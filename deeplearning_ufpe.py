@@ -542,7 +542,7 @@ def main():
     parser.add_argument('--scale', action='store_true', default=False)
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
-    parser.add_argument('--transfer_learning', type=str, default='no')
+    parser.add_argument('--transfer_learning', type=str, default=None)
     # parser.add_argument('--usedropout', action='store_true', default=False)
     parser.add_argument('--model', type=str, default='32x32x128')
     parser.add_argument('--dropout_method', type=str, default='no')
