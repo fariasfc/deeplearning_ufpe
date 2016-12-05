@@ -511,7 +511,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
     #     print("{}".format(model_yaml), file=text_file)
 
     if args.transfer_learning:
-        print("Transfer Learning: {}".format(args.transfer_learningtrained_weights_file))
+        print("Transfer Learning: {}".format(args.transfer_learning))
         assert isfile(args.transfer_learning), "Transfer Learning activated, but file {} not found".format(args.transfer_learning)
         model.load_weights(args.transfer_learning, by_name=True)
         print("Loaded weights from: {}".format(args.transfer_learning))
