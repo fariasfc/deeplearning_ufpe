@@ -51,10 +51,12 @@ def get_prefix(args, filetype, threshold=None, index=None):
                 droprates += str(drop_rate) + '_'
             prefix = prefix + droprates
 
+        if args.transfer_learning:
+            prefix = prefix + '_transfer_learning=' + args.transfer_learning
+
         if filetype == 'trained':
             prefix = prefix + '_trained_weights.h5'
         elif filetype == 'csv':
-
             prefix = prefix + '.csv'
         else:
             prefix = prefix + '.txt'
