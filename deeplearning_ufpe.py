@@ -511,11 +511,10 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
     #     print("{}".format(model_yaml), file=text_file)
 
     if args.transfer_learning:
-        print("Transfer Learning: {}".format(weights_file))
-        trained_weights_file = get_prefix(args, 'trained', None, index)
-        assert isfile(trained_weights_file), "Transfer Learning activated, but file {} not found".format(trained_weights_file)
-        model.load_weights(trained_weights_file, by_name=True)
-        print("Loaded weights from: {}".format(trained_weights_file))
+        print("Transfer Learning: {}".format(args.transfer_learningtrained_weights_file))
+        assert isfile(args.transfer_learning), "Transfer Learning activated, but file {} not found".format(args.transfer_learning)
+        model.load_weights(args.transfer_learning, by_name=True)
+        print("Loaded weights from: {}".format(args.transfer_learning))
     else:
         if isfile(weights_file):
             print("Loading Weights File: {} ...".format(weights_file))
@@ -541,7 +540,7 @@ def main():
     parser.add_argument('--scale', action='store_true', default=False)
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
-    parser.add_argument('--transfer_learning', action='store_true', default=False)
+    parser.add_argument('--transfer_learning', type=str, default='no')
     # parser.add_argument('--usedropout', action='store_true', default=False)
     parser.add_argument('--model', type=str, default='32x32x128')
     parser.add_argument('--dropout_method', type=str, default='no')
