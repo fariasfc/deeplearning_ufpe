@@ -316,7 +316,7 @@ class SSGD(Optimizer):
         if self.args.use_decay_cos:
 
             c = 0.5 + 0.5 * K.cos(self.iterations / self.period * 2 * 3.141593)
-            c = (1 - self.iterations / self.nb_iterations) * c
+            # c = (1 - self.iterations / self.nb_iterations) * c
             p = self.p_start * c + self.p_end * (1 - c)
         else:
             if self.inital_decay > 0:
