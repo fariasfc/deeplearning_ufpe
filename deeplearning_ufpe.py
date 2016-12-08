@@ -247,7 +247,7 @@ class DropoutDecayed(Layer):
         if self.use_cos:
             # c = 0.5 + 0.5 * K.cos((self.iterations % self.nb_iterations)/self.nb_iterations * 2 * np.pi)
             # Here, nb_iterations == period w.r.t. nb_epochs
-            c = 0.5 + 0.5*K.cos(self.iterations/self.period * 2 * np.pi)
+            c = 0.5 + 0.5*K.cos(self.iterations/self.period * 2 * np.float32(np.pi))
             c = (1-self.iterations/self.nb_iterations)*c
             p = self.p_start * c + self.p_end * (1-c)
             #plt.plot((1 - (iterations / nb_iterations)) * (p_start * (0.5 + 0.5 * np.cos((iterations) / period * 2 * np.pi)) + p_end * (1 - (0.5 + 0.5 * np.cos((iterations) / period * 2 * np.pi)))))
