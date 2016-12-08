@@ -515,8 +515,8 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
     # the Input layer and three Dense layers
     model = Model(input=inputs, output=predictions)
 
-    lr = 0.1
-    lr_end = 0.01
+    lr = args.drop_rates[0]
+    lr_end = args.drop_rates[1]
     d = (lr/lr_end - 1)/(args.nb_epochs * np.ceil(NB_SAMPLES/BATCH_SIZE))
     if (optimizer == 'sgd'):
         # opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
