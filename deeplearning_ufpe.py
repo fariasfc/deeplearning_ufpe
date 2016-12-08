@@ -466,7 +466,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv1')(inputs)
         h = Convolution2D(32, kernel_size[0], kernel_size[1], border_mode='same', activation='relu', name='conv2')(h)
         h = MaxPooling2D(pool_size=pool_size, strides=strides, name='maxp2')(h)
-        drop_rate = 0.25
+        drop_rate = args.drop_rates[0]
         if dropout_method == 'original':
             h = Dropout(drop_rate, name='drop1')(h)
         elif 'dropout' in dropout_method:
@@ -478,7 +478,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
 
         h = Flatten()(h)
         h = Dense(128, activation='relu', name='dense1')(h)
-        drop_rate = 0.5
+        drop_rate = args.drop_rates[1]
         if dropout_method == 'original':
             h = Dropout(drop_rate, name='drop2')(h)
         elif 'dropout' in dropout_method:
@@ -588,7 +588,7 @@ def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
-    parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=None)
+    parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=[0.25, 0.5, -1, -1])
     parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
     parser.add_argument('--cos_period', type=int, metavar='E', default=50)
     parser.add_argument('--nb_runs', type=int, metavar='E', default=5)
