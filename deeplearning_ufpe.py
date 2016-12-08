@@ -378,7 +378,7 @@ class SSGD(Optimizer):
 
                 tmp = (normalized_gradients + t)/2
 
-                chance_to_drop = (((np.power(tmp, 2) - tmp + -1/4))+0.5)*4
+                chance_to_drop = (((K.pow(tmp, 2) - tmp + -1/4))+0.5)*4
 
                 mask = r <= chance_to_drop
                 new_g = g * mask
