@@ -302,8 +302,9 @@ class SSGD(Optimizer):
         self.inital_decay = decay
         self.optimizer = optimizer
         self.scale = scale
-        self.p_start = args.drop_rates[0]
-        self.p_end = args.drop_rates[1]
+        if args.drop_rates:
+            self.p_start = args.drop_rates[0]
+            self.p_end = args.drop_rates[1]
         self.args = args
         self.period = args.cos_period * NB_SAMPLES / BATCH_SIZE
         self.nb_iterations = args.nb_epochs * NB_SAMPLES / BATCH_SIZE
@@ -372,11 +373,13 @@ class SSGD(Optimizer):
                 print('drop_lowests_after_highests')
                 r = K.random_uniform(g.shape, seed=SEED)
 
-                t = iteration/self.nb_iterations
-                tmp = (normalized_gradients + t)/2
-                chance_to_drop = (((np.power(t, 2) - t + -1/4))+0.5)*4
-
                 normalized_gradients = T.abs_(g) / T.max(g)
+                t = iteration/self.nb_iterations
+
+                tmp = (normalized_gradients + t)/2
+
+                chance_to_drop = (((np.power(tmp, 2) - tmp + -1/4))+0.5)*4
+
                 mask = r < chance_to_drop
                 new_g = g * mask
 
@@ -585,7 +588,7 @@ def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--dataset', type=str, default='cifar10')
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
-    parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=[-1])
+    parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=None)
     parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
     parser.add_argument('--cos_period', type=int, metavar='E', default=50)
     parser.add_argument('--nb_runs', type=int, metavar='E', default=5)
@@ -714,12 +717,12 @@ def main():
                         #           shuffle=False)
                         l = model.layers[4]
 
-                        d_i = K.get_value(l.iterations)
-                        d_c =  (0.5 + 0.5 * K.cos(d_i / l.period * 2 * np.pi)).eval()
-                        d_c_decayed = (1-d_i/l.nb_iterations) * d_c
-                        d_p = l.p_start * d_c_decayed + l.p_end * (1-d_c_decayed)
+                        # d_i = K.get_value(l.iterations)
+                        # d_c =  (0.5 + 0.5 * K.cos(d_i / l.period * 2 * np.pi)).eval()
+                        # d_c_decayed = (1-d_i/l.nb_iterations) * d_c
+                        # d_p = l.p_start * d_c_decayed + l.p_end * (1-d_c_decayed)
 
-                        print("p={}     c={}    iterations={}       d_c_decayed={}".format(d_p, d_c, d_i, d_c_decayed))
+                        # print("p={}     c={}    iterations={}       d_c_decayed={}".format(d_p, d_c, d_i, d_c_decayed))
                         # print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
 
                         model.fit(X_train,
