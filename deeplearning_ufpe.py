@@ -653,55 +653,55 @@ def main():
             if not args.augmentation:
                 print('Not using data augmentation.')
 
-                if args.debug:
-                X_train = X_train[:NB_SAMPLES, :]
-                Y_train = Y_train[:NB_SAMPLES, :]
-
-                X_test = X_test[:NB_SAMPLES, :]
-                Y_test = Y_test[:NB_SAMPLES, :]
 
                 ##### view values: ####
-                epochs = args.nb_epochs
-                print('Training')
-                for i in range(epochs):
-                    print('Epoch', i, '/', epochs)
-                    # nb_batches = 2
+                if args.debug:
+                    X_train = X_train[:NB_SAMPLES, :]
+                    Y_train = Y_train[:NB_SAMPLES, :]
 
-                    # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                    #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                    #           batch_size=batch_size,
-                    #           verbose=1,
-                    #           nb_epoch=1,
-                    #           shuffle=False)
-                    l = model.layers[4]
+                    X_test = X_test[:NB_SAMPLES, :]
+                    Y_test = Y_test[:NB_SAMPLES, :]
+                    epochs = args.nb_epochs
+                    print('Training')
+                    for i in range(epochs):
+                        print('Epoch', i, '/', epochs)
+                        # nb_batches = 2
 
-                    d_i = K.get_value(l.iterations)
-                    d_c =  (0.5 + 0.5 * K.cos(d_i / l.period * 2 * np.pi)).eval()
-                    d_c_decayed = (1-d_i/l.nb_iterations) * d_c
-                    d_p = l.p_start * d_c_decayed + l.p_end * (1-d_c_decayed)
+                        # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                        #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                        #           batch_size=batch_size,
+                        #           verbose=1,
+                        #           nb_epoch=1,
+                        #           shuffle=False)
+                        l = model.layers[4]
 
-                    print("p={}     c={}    iterations={}       d_c_decayed={}".format(d_p, d_c, d_i, d_c_decayed))
-                    # print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
+                        d_i = K.get_value(l.iterations)
+                        d_c =  (0.5 + 0.5 * K.cos(d_i / l.period * 2 * np.pi)).eval()
+                        d_c_decayed = (1-d_i/l.nb_iterations) * d_c
+                        d_p = l.p_start * d_c_decayed + l.p_end * (1-d_c_decayed)
 
-                    model.fit(X_train,
-                              Y_train,
-                              batch_size=batch_size,
-                              verbose=1,
-                              nb_epoch=1,
-                              shuffle=False)
-                    # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
+                        print("p={}     c={}    iterations={}       d_c_decayed={}".format(d_p, d_c, d_i, d_c_decayed))
+                        # print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
 
-                    # for layer in model.layers:
-                    #     if 'DropoutModified' in str(layer):
-                    #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
-                    #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
-                    #         print('drop = {}'.format(K.get_value(layer.drop)))
+                        model.fit(X_train,
+                                  Y_train,
+                                  batch_size=batch_size,
+                                  verbose=1,
+                                  nb_epoch=1,
+                                  shuffle=False)
+                        # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
 
-                    # output of the first batch value of the batch after the first fit().
-                    # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
-                    # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+                        # for layer in model.layers:
+                        #     if 'DropoutModified' in str(layer):
+                        #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
+                        #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
+                        #         print('drop = {}'.format(K.get_value(layer.drop)))
 
-                    # model.reset_states()
+                        # output of the first batch value of the batch after the first fit().
+                        # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
+                        # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+
+                        # model.reset_states()
                     ### END view values ###
 
                 model.fit(X_train, Y_train,
