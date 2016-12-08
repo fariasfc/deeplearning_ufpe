@@ -1,3 +1,5 @@
+#--debug --dropout_method dropout_decayed --drop_rates 0.9 0.1 0.9 0.1 --model 32x32x128 --nb_epochs 200 --cos_period 50 --use_decay_cos
+#--debug --dropout_method no --optimizer drop_lowests_after_highests --model 32x32x128 --nb_epochs 200
 import argparse
 
 import numpy as np
@@ -304,7 +306,7 @@ class SSGD(Optimizer):
         self.p_end = args.drop_rates[1]
         self.args = args
         self.period = args.cos_period * NB_SAMPLES / BATCH_SIZE
-        self.nb_iterations = args.nb_epochs * NB_SAMPLES / 128
+        self.nb_iterations = args.nb_epochs * NB_SAMPLES / BATCH_SIZE
 
     def get_updates(self, params, constraints, loss):
         grads = self.get_gradients(loss, params)
@@ -313,8 +315,8 @@ class SSGD(Optimizer):
 
         lr = self.lr
         threshold = self.threshold
+        iteration = self.iterations
         if self.args.use_decay_cos:
-
             c = 0.5 + 0.5 * K.cos(self.iterations / self.period * 2 * 3.141593)
             # c = (1 - self.iterations / self.nb_iterations) * c
             p = self.p_start * c + self.p_end * (1 - c)
@@ -366,6 +368,18 @@ class SSGD(Optimizer):
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs < threshold_values
                 new_g = g * mask
+            elif self.optimizer == 'drop_lowests_after_highests':
+                print('drop_lowests_after_highests')
+                r = K.random_uniform(g.shape, seed=SEED)
+
+                t = iteration/self.nb_iterations
+                tmp = (normalized_gradients + t)/2
+                chance_to_drop = (((np.power(t, 2) - t + -1/4))+0.5)*4
+
+                normalized_gradients = T.abs_(g) / T.max(g)
+                mask = r < chance_to_drop
+                new_g = g * mask
+
             elif self.optimizer == 'sgd_cos':
                 print("sgd_cos")
                 print("pstart={}    pend={}     decay={}    nb_it={}     period={}".format(self.p_start, self.p_end, self.decay, self.nb_iterations, self.period))
@@ -522,8 +536,8 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
         # opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
         opt = SGD(lr=lr, decay=d, momentum=0, nesterov=False)
     else:
-        # opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale)
-        opt = SSGD(lr=lr, decay=d, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale, args=args)
+        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale, args=args)
+        # opt = SSGD(lr=lr, decay=d, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale, args=args)
 
     print('Compiling model...')
     start_compile = time.time()
