@@ -372,15 +372,15 @@ class SSGD(Optimizer):
             elif self.optimizer == 'drop_lowests_after_highests':
                 print('drop_lowests_after_highests')
                 r = K.random_uniform(g.shape, seed=SEED)
-
-                normalized_gradients = T.abs_(g) / T.max(g)
+                g_abs = K.abs(g)
+                normalized_gradients = g_abs / K.max(g_abs)
                 t = iteration/self.nb_iterations
 
                 tmp = (normalized_gradients + t)/2
 
                 chance_to_drop = (((np.power(tmp, 2) - tmp + -1/4))+0.5)*4
 
-                mask = r < chance_to_drop
+                mask = r <= chance_to_drop
                 new_g = g * mask
 
             elif self.optimizer == 'sgd_cos':
