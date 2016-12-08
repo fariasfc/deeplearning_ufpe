@@ -261,7 +261,7 @@ class DropoutDecayed(Layer):
 
 
         rng = shared_randomstreams.RandomStreams(seed=SEED)
-        retain_prob = 1. - p
+        retain_prob = K.cast_to_floatx(1. - p)
 
 
         random_tensor = rng.binomial(x.shape, p=retain_prob, dtype=x.dtype)
