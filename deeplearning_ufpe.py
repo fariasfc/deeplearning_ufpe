@@ -248,7 +248,7 @@ class DropoutDecayed(Layer):
             # c = 0.5 + 0.5 * K.cos((self.iterations % self.nb_iterations)/self.nb_iterations * 2 * np.pi)
             # Here, nb_iterations == period w.r.t. nb_epochs
             c = 0.5 + 0.5*K.cos(self.iterations/self.period * 2 * np.float32(np.pi))
-            c = K.cast((1-self.iterations/self.nb_iterations)*c, K.floatX)
+            c = K.cast((1-self.iterations/self.nb_iterations)*c, np.float32)
             p = self.p_start * c + self.p_end * (1-c)
             #plt.plot((1 - (iterations / nb_iterations)) * (p_start * (0.5 + 0.5 * np.cos((iterations) / period * 2 * np.pi)) + p_end * (1 - (0.5 + 0.5 * np.cos((iterations) / period * 2 * np.pi)))))
         else:
@@ -264,7 +264,7 @@ class DropoutDecayed(Layer):
         retain_prob = 1. - p
 
 
-        random_tensor = rng.binomial(x.shape, p=retain_prob, dtype=K.floatX)
+        random_tensor = rng.binomial(x.shape, p=retain_prob, dtype=np.float32)
 
         x_new = x * random_tensor
         x_new /= retain_prob
