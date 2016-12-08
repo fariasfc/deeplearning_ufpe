@@ -37,7 +37,7 @@ else:
 
 SEED = 1
 BATCH_SIZE = 128
-NB_SAMPLES = 3000
+NB_SAMPLES = 50000
 np.random.seed(SEED)
 
 def get_prefix(args, filetype, threshold=None, index=None):
