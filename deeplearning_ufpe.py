@@ -28,7 +28,7 @@ if K.backend() == 'theano':
     # theano.config.optimizer='fast_compile'
     # theano.config.exception_verbosity='high'
     # theano.config.compute_test_value = 'warn'
-    from theano.tensor.shared_randomstreams import RandomStreams
+    from theano.tensor import shared_randomstreams
 else:
     import tensorflow as tf
     import tensorflow
@@ -37,25 +37,27 @@ else:
 
 SEED = 1
 BATCH_SIZE = 128
+NB_SAMPLES = 3000
 np.random.seed(SEED)
 
 def get_prefix(args, filetype, threshold=None, index=None):
     if filetype == 'initial_weights':
         prefix = args.dataset +'_model=' + args.model + "_idx=" + str(index) + "_weights.h5"
     elif filetype in ['trained', 'csv', 'model']:
-        prefix = dataset_name +  '_nbepochs=' + str(args.nb_epochs) + '_model=' + args.model + '_opt=' + args.optimizer + '_dropoutmethod=' + args.dropout_method + '_scale=' + str(args.scale) + '_threshold=' + str(threshold) + '_index=' + str(index)
+        prefix = dataset_name +  '_nbepochs=' + str(args.nb_epochs) + '_mdl=' + args.model + '_opt=' + args.optimizer + '_droptmethd=' + args.dropout_method + '_scl=' + str(args.scale) + '_thres=' + str(threshold) + '_idx=' + str(index) +\
+                 '_cos=' + str(args.use_decay_cos) + '_period=' + str(args.cos_period)
 
         if args.dropout_method == 'dropout_decayed':
-            droprates = 'drop_rates='
+            droprates = 'drp_rts='
             for drop_rate in args.drop_rates:
                 droprates += str(drop_rate) + '_'
             prefix = prefix + droprates
 
         if args.transfer_learning:
-            prefix = prefix + '_transfer_learning=' + args.transfer_learning
+            prefix = prefix + '_txfer_lrng=' + args.transfer_learning
 
         if filetype == 'trained':
-            prefix = prefix + '_trained_weights.h5'
+            prefix = prefix + '_trand_w8.h5'
         elif filetype == 'csv':
             prefix = prefix + '.csv'
         else:
@@ -194,16 +196,17 @@ class DropoutDecayed(Layer):
     # References
         - [Dropout: A Simple Way to Prevent Neural Networks from Overfitting](http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf)
     '''
-    def __init__(self, p_start, p_end, nb_iterations, **kwargs):
+    def __init__(self, p_start, p_end, nb_iterations, use_cos, period, **kwargs):
         self.p_start = p_start
         self.p_end = p_end
-
-        self.decay = (p_end - p_start) / nb_iterations
+        self.use_cos = use_cos
+        self.nb_iterations = nb_iterations
+        self.period = period
 
         self.supports_masking = True
         self.iterations = K.variable(0.)
         self.p = K.variable(p_start)
-
+        self.decay = (self.p_end - self.p_start) / self.nb_iterations
         if 0. < p_start < 1. and 0. < p_end < 1.:
             self.uses_learning_phase = True
         self.updates = []
@@ -241,14 +244,23 @@ class DropoutDecayed(Layer):
 
         p = self.p
 
-        p += self.decay*self.iterations
+        if self.use_cos:
+            # c = 0.5 + 0.5 * K.cos((self.iterations % self.nb_iterations)/self.nb_iterations * 2 * np.pi)
+            # Here, nb_iterations == period w.r.t. nb_epochs
+            c = 0.5 + 0.5*K.cos(self.iterations/self.period * 2 * np.pi)
+            c = (1-self.iterations/self.nb_iterations)*c
+            p = self.p_start * c + self.p_end * (1-c)
+            #plt.plot((1 - (iterations / nb_iterations)) * (p_start * (0.5 + 0.5 * np.cos((iterations) / period * 2 * np.pi)) + p_end * (1 - (0.5 + 0.5 * np.cos((iterations) / period * 2 * np.pi)))))
+        else:
+            p += self.decay*self.iterations
+
         self.updates.append(K.update_add(self.iterations, 1))
 
 
         noise_shape = self._get_noise_shape(x)
 
 
-        rng = RandomStreams(seed=SEED)
+        rng = shared_randomstreams.RandomStreams(seed=SEED)
         retain_prob = 1. - p
 
 
@@ -427,7 +439,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
             h = Dropout(drop_rate, name='drop1')(h)
         elif 'dropout' in dropout_method:
             if dropout_method == 'dropout_decayed':
-                h = DropoutDecayed(args.drop_rates[0], args.drop_rates[1], args.nb_epochs*50000/128)(h)
+                h = DropoutDecayed(args.drop_rates[0], args.drop_rates[1], args.nb_epochs * NB_SAMPLES / 128, args.use_decay_cos, args.cos_period)(h)
             else:
                 h = DropoutModified(drop_rate, name='drop_modified1' + dropout_method, method=dropout_method)(h)
 
@@ -439,7 +451,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
             h = Dropout(drop_rate, name='drop2')(h)
         elif 'dropout' in dropout_method:
             if dropout_method == 'dropout_decayed':
-                h = DropoutDecayed(args.drop_rates[2], args.drop_rates[3], args.nb_epochs * 50000/128)(h)
+                h = DropoutDecayed(args.drop_rates[2], args.drop_rates[3], args.nb_epochs * NB_SAMPLES / 128, args.use_decay_cos, args.cos_period)(h)
             else:
                 h = DropoutModified(drop_rate, name='drop_modified2' + dropout_method, method=dropout_method)(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
@@ -536,16 +548,19 @@ def main():
     parser.add_argument('--thresholds', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--drop_rates', type=float, metavar='T', nargs='+', default=[-1])
     parser.add_argument('--nb_epochs', type=int, metavar='E', default=200)
+    parser.add_argument('--cos_period', type=int, metavar='E', default=50)
     parser.add_argument('--nb_runs', type=int, metavar='E', default=5)
     # parser.add_argument('--algorithm', type=str, default='nothing')
     parser.add_argument('--optimizer', type=str, default='sgd')
     parser.add_argument('--scale', action='store_true', default=False)
     parser.add_argument('--verbose', type=int, default=1)
     parser.add_argument('--augmentation', action='store_true', default=False)
+    parser.add_argument('--use_decay_cos', action='store_true', default=False)
     parser.add_argument('--transfer_learning', type=str, default=None)
     # parser.add_argument('--usedropout', action='store_true', default=False)
     parser.add_argument('--model', type=str, default='32x32x128')
     parser.add_argument('--dropout_method', type=str, default='no')
+    parser.add_argument('--debug', action='store_true', default=False)
 
     args = parser.parse_args()
     global dataset_name
@@ -638,42 +653,56 @@ def main():
             if not args.augmentation:
                 print('Not using data augmentation.')
 
-                # ##### view values: ####
-                # epochs = 25
-                # print('Training')
-                # for i in range(epochs):
-                #     print('Epoch', i, '/', epochs)
-                #     # nb_batches = 2
-                #
-                #     # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                #     #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
-                #     #           batch_size=batch_size,
-                #     #           verbose=1,
-                #     #           nb_epoch=1,
-                #     #           shuffle=False)
-                #     l = model.layers[4]
-                #     print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
-                #
-                #     model.fit(X_train,
-                #               Y_train,
-                #               batch_size=batch_size,
-                #               verbose=1,
-                #               nb_epoch=1,
-                #               shuffle=False)
-                #     # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
-                #
-                #     # for layer in model.layers:
-                #     #     if 'DropoutModified' in str(layer):
-                #     #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
-                #     #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
-                #     #         print('drop = {}'.format(K.get_value(layer.drop)))
-                #
-                #     # output of the first batch value of the batch after the first fit().
-                #     # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
-                #     # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
-                #
-                #     # model.reset_states()
-                #     ### END view values ###
+                if args.debug:
+                X_train = X_train[:NB_SAMPLES, :]
+                Y_train = Y_train[:NB_SAMPLES, :]
+
+                X_test = X_test[:NB_SAMPLES, :]
+                Y_test = Y_test[:NB_SAMPLES, :]
+
+                ##### view values: ####
+                epochs = args.nb_epochs
+                print('Training')
+                for i in range(epochs):
+                    print('Epoch', i, '/', epochs)
+                    # nb_batches = 2
+
+                    # model.fit(X_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                    #           Y_train[i*nb_batches * batch_size:(i+1)*nb_batches * batch_size],
+                    #           batch_size=batch_size,
+                    #           verbose=1,
+                    #           nb_epoch=1,
+                    #           shuffle=False)
+                    l = model.layers[4]
+
+                    d_i = K.get_value(l.iterations)
+                    d_c =  (0.5 + 0.5 * K.cos(d_i / l.period * 2 * np.pi)).eval()
+                    d_c_decayed = (1-d_i/l.nb_iterations) * d_c
+                    d_p = l.p_start * d_c_decayed + l.p_end * (1-d_c_decayed)
+
+                    print("p={}     c={}    iterations={}       d_c_decayed={}".format(d_p, d_c, d_i, d_c_decayed))
+                    # print("p={} decay={} iterations={} current_p={}".format(K.get_value(l.p), l.decay, K.get_value(l.iterations), K.get_value(l.p) + l.decay * K.get_value(l.iterations)))
+
+                    model.fit(X_train,
+                              Y_train,
+                              batch_size=batch_size,
+                              verbose=1,
+                              nb_epoch=1,
+                              shuffle=False)
+                    # print('drop = {}'.format(K.get_value(model.layers[4].drop_ages)))
+
+                    # for layer in model.layers:
+                    #     if 'DropoutModified' in str(layer):
+                    #         # print('mask_lesser = {}'.format(K.get_value(layer.mask_lesser)))
+                    #         # print('casted_mask = {}'.format(K.get_value(layer.casted_mask)))
+                    #         print('drop = {}'.format(K.get_value(layer.drop)))
+
+                    # output of the first batch value of the batch after the first fit().
+                    # first_batch_element = np.expand_dims(cos[0], axis=1)  # (1, 1) to (1, 1, 1)
+                    # print('output = {}'.format(get_LSTM_output([first_batch_element])[0].flatten()))
+
+                    # model.reset_states()
+                    ### END view values ###
 
                 model.fit(X_train, Y_train,
                           batch_size=batch_size,
