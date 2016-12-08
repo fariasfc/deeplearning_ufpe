@@ -366,7 +366,9 @@ class SSGD(Optimizer):
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs < threshold_values
                 new_g = g * mask
-            elif self.optimizer == 'sgd':
+            elif self.optimizer == 'sgd_cos':
+                print("sgd_cos")
+                print("pstart={}    pend={}     decay={}    nb_it={}     period={}".format(self.p_start, self.p_end, self.decay, self.nb_iterations, self.period))
                 new_g = g
             else:
                 raise Exception('invalid optimizer')
