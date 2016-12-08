@@ -289,7 +289,7 @@ class SSGD(Optimizer):
         nesterov: boolean. Whether to apply Nesterov momentum.
     '''
     def __init__(self, lr=0.01, momentum=0., decay=0.,
-                 nesterov=False, threshold=0, optimizer=None, scale=False, **kwargs):
+                 nesterov=False, threshold=0, optimizer=None, scale=False, args=None, **kwargs):
         super(SSGD, self).__init__(**kwargs)
         self.__dict__.update(locals())
         self.iterations = K.variable(0.)
@@ -300,6 +300,11 @@ class SSGD(Optimizer):
         self.inital_decay = decay
         self.optimizer = optimizer
         self.scale = scale
+        self.p_start = args.drop_rates[0]
+        self.p_end = args.drop_rates[1]
+        self.args = args
+        self.period = args.cos_period * NB_SAMPLES / BATCH_SIZE
+        self.nb_iterations = args.nb_epochs * NB_SAMPLES / 128
 
     def get_updates(self, params, constraints, loss):
         grads = self.get_gradients(loss, params)
@@ -308,9 +313,15 @@ class SSGD(Optimizer):
 
         lr = self.lr
         threshold = self.threshold
-        if self.inital_decay > 0:
-            lr *= (1. / (1. + self.decay * self.iterations))
-            # threshold *= (1. / (1. + self.decay * self.iterations))
+        if self.args.use_decay_cos:
+
+            c = 0.5 + 0.5 * K.cos(self.iterations / self.period * 2 * 3.141593)
+            c = (1 - self.iterations / self.nb_iterations) * c
+            p = self.p_start * c + self.p_end * (1 - c)
+        else:
+            if self.inital_decay > 0:
+                lr *= (1. / (1. + self.decay * self.iterations))
+                # threshold *= (1. / (1. + self.decay * self.iterations))
 
             self.updates.append(K.update_add(self.iterations, 1))
 
@@ -355,6 +366,8 @@ class SSGD(Optimizer):
                 threshold_values = threshold * (max_g - min_g) + min_g
                 mask = g_abs < threshold_values
                 new_g = g * mask
+            elif self.optimizer == 'sgd':
+                new_g = g
             else:
                 raise Exception('invalid optimizer')
 
@@ -500,11 +513,15 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
     # the Input layer and three Dense layers
     model = Model(input=inputs, output=predictions)
 
-    # let's train the model using SGD + momentum (how original).
+    lr = 0.1
+    lr_end = 0.01
+    d = (lr/lr_end - 1)/(args.nb_epochs * np.ceil(NB_SAMPLES/BATCH_SIZE))
     if (optimizer == 'sgd'):
-        opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
+        # opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
+        opt = SGD(lr=lr, decay=d, momentum=0, nesterov=False)
     else:
-        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale)
+        # opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale)
+        opt = SSGD(lr=lr, decay=d, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale)
 
     print('Compiling model...')
     start_compile = time.time()
