@@ -439,7 +439,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
             h = Dropout(drop_rate, name='drop1')(h)
         elif 'dropout' in dropout_method:
             if dropout_method == 'dropout_decayed':
-                h = DropoutDecayed(args.drop_rates[0], args.drop_rates[1], args.nb_epochs * NB_SAMPLES / 128, args.use_decay_cos, args.cos_period)(h)
+                h = DropoutDecayed(args.drop_rates[0], args.drop_rates[1], args.nb_epochs * NB_SAMPLES / 128, args.use_decay_cos, args.cos_period * NB_SAMPLES / 128)(h)
             else:
                 h = DropoutModified(drop_rate, name='drop_modified1' + dropout_method, method=dropout_method)(h)
 
@@ -451,7 +451,7 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
             h = Dropout(drop_rate, name='drop2')(h)
         elif 'dropout' in dropout_method:
             if dropout_method == 'dropout_decayed':
-                h = DropoutDecayed(args.drop_rates[2], args.drop_rates[3], args.nb_epochs * NB_SAMPLES / 128, args.use_decay_cos, args.cos_period)(h)
+                h = DropoutDecayed(args.drop_rates[2], args.drop_rates[3], args.nb_epochs * NB_SAMPLES / 128, args.use_decay_cos, args.cos_period * NB_SAMPLES / 128)(h)
             else:
                 h = DropoutModified(drop_rate, name='drop_modified2' + dropout_method, method=dropout_method)(h)
         predictions = Dense(nb_classes, activation='softmax', name='outputs')(h)
@@ -656,11 +656,11 @@ def main():
 
                 ##### view values: ####
                 if args.debug:
-                    X_train = X_train[:NB_SAMPLES, :]
-                    Y_train = Y_train[:NB_SAMPLES, :]
+                    # X_train = X_train[:NB_SAMPLES, :]
+                    # Y_train = Y_train[:NB_SAMPLES, :]
 
-                    X_test = X_test[:NB_SAMPLES, :]
-                    Y_test = Y_test[:NB_SAMPLES, :]
+                    # X_test = X_test[:NB_SAMPLES, :]
+                    # Y_test = Y_test[:NB_SAMPLES, :]
                     epochs = args.nb_epochs
                     print('Training')
                     for i in range(epochs):
