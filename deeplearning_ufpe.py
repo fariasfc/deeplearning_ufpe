@@ -529,14 +529,20 @@ def create_model(shape_inputs, nb_classes, kernel_size, pool_size, strides, thre
     # the Input layer and three Dense layers
     model = Model(input=inputs, output=predictions)
 
-    lr = args.drop_rates[0]
-    lr_end = args.drop_rates[1]
-    d = (lr/lr_end - 1)/(args.nb_epochs * np.ceil(NB_SAMPLES/BATCH_SIZE))
+    if args.drop_rates:
+        lr = args.drop_rates[0]
+        lr_end = args.drop_rates[1]
+        d = (lr/lr_end - 1)/(args.nb_epochs * np.ceil(NB_SAMPLES/BATCH_SIZE))
+    else:
+        lr = 0.01
+        d = 1e-6
+
+    print("lr={}    d={}".format(lr, d))
     if (optimizer == 'sgd'):
         # opt = SGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False)
         opt = SGD(lr=lr, decay=d, momentum=0, nesterov=False)
     else:
-        opt = SSGD(lr=0.01, decay=1e-6, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale, args=args)
+        opt = SSGD(lr=lr, decay=d, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale, args=args)
         # opt = SSGD(lr=lr, decay=d, momentum=0, nesterov=False, threshold=threshold, optimizer=optimizer, scale=scale, args=args)
 
     print('Compiling model...')
